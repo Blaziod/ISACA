@@ -1,5 +1,5 @@
 // API endpoints for persistent storage
-const API_BASE_URL = "https://isaca.idcode.ng/api";
+const API_BASE_URL = "https://isaca-kappa.vercel.app/api";
 
 // Fallback to localStorage if API is not available
 const STORAGE_KEYS = {
