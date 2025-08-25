@@ -2,7 +2,7 @@ import emailjs from "@emailjs/browser";
 
 // EmailJS configuration
 const EMAIL_CONFIG = {
-  SERVICE_ID: "service_a383kuu",
+  SERVICE_ID: "service_qkhidgl",
   TEMPLATE_ID: "template_orrs17r",
   PUBLIC_KEY: "j7W73UosW-ZnAApXI",
 };
@@ -31,7 +31,10 @@ export const testEmailService = async (testEmail = "test@example.com") => {
       to_email: testEmail,
       user_id: "TEST001",
       backup_code: "123456",
-      department: "Testing",
+      organisation: "Test Organisation",
+      designation: "Test Position",
+      isaca_id: "TEST001",
+      participation_category: "Physical",
       registration_date: new Date().toLocaleDateString(),
       qr_code_data: testQRCode,
       reply_to: "noreply@accessidcode.com",
@@ -74,14 +77,22 @@ export const sendWelcomeEmail = async (user) => {
       };
     }
 
+    // Generate download information
+    const downloadInfo = generateQRDownloadInfo(user);
+
     const templateParams = {
       to_name: user.name,
       to_email: user.email,
       user_id: user.id,
       backup_code: user.backupCode,
-      department: user.department || "Not specified",
+      organisation: user.organisation || "Not specified",
+      designation: user.designation || "Not specified",
+      isaca_id: user.isacaId || "N/A",
+      participation_category: user.participationCategory || "Not specified",
       registration_date: new Date(user.registeredAt).toLocaleDateString(),
       qr_code_image: user.qrCode, // This should be used in the email template as {{qr_code_image}}
+      qr_filename: downloadInfo.filename,
+      qr_download_instruction: downloadInfo.downloadInstruction,
       reply_to: "noreply@accessidcode.com",
     };
 
@@ -199,5 +210,27 @@ export const debugQRCode = (user) => {
     isValid: user.qrCode && user.qrCode.startsWith("data:image/"),
     length: user.qrCode?.length || 0,
     type: typeof user.qrCode,
+  };
+};
+
+// Generate QR code download information
+export const generateQRDownloadInfo = (user) => {
+  const filename = `${user.name.replace(/\s+/g, "_")}_${user.id}_QR_Code.png`;
+  const downloadInstruction = `Right-click on the QR code image and select "Save Image As..." then save as "${filename}"`;
+
+  return {
+    filename,
+    downloadInstruction,
+    userFriendlyName: `${user.name} QR Code`,
+  };
+};
+
+// Create a data URL for QR code download (for email compatibility)
+export const createQRDownloadLink = (qrCodeDataURL, filename) => {
+  // Return the data URL with suggested filename
+  return {
+    href: qrCodeDataURL,
+    download: filename,
+    instructions: "Right-click and select 'Save Image As...' to download",
   };
 };
