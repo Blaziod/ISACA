@@ -6,6 +6,7 @@ import {
   sendBulkWelcomeEmails,
   validateEmailConfig,
   initEmailJS,
+  debugQRCode,
 } from "../utils/emailService";
 import {
   FaUserPlus,
@@ -171,6 +172,9 @@ const Register = () => {
         });
 
         try {
+          // Debug QR code before sending email
+          debugQRCode(newUser);
+
           const emailResult = await sendWelcomeEmail(newUser);
 
           if (emailResult.success) {

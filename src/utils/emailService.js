@@ -12,35 +12,67 @@ export const initEmailJS = () => {
   emailjs.init(EMAIL_CONFIG.PUBLIC_KEY);
 };
 
-// Convert data URL to blob for email attachment
-const dataURLtoBlob = (dataURL) => {
-  const arr = dataURL.split(",");
-  const mime = arr[0].match(/:(.*?);/)[1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-};
+// Test email service with a sample QR code
+export const testEmailService = async (testEmail = "test@example.com") => {
+  try {
+    // Create a simple test QR code data URL
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 100;
+    canvas.height = 100;
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, 100, 100);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(10, 10, 80, 80);
+    const testQRCode = canvas.toDataURL("image/png");
 
-// Convert blob to base64 for email attachment
-const blobToBase64 = (blob) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+    const templateParams = {
+      to_name: "Test User",
+      to_email: testEmail,
+      user_id: "TEST001",
+      backup_code: "123456",
+      department: "Testing",
+      registration_date: new Date().toLocaleDateString(),
+      qr_code_data: testQRCode,
+      reply_to: "noreply@accessidcode.com",
+    };
+
+    const response = await emailjs.send(
+      EMAIL_CONFIG.SERVICE_ID,
+      EMAIL_CONFIG.TEMPLATE_ID,
+      templateParams
+    );
+
+    console.log("Test email sent successfully:", response);
+    return {
+      success: true,
+      message: "Test email sent successfully",
+      response,
+    };
+  } catch (error) {
+    console.error("Test email failed:", error);
+    return {
+      success: false,
+      message: "Test email failed",
+      error: error.message,
+    };
+  }
 };
 
 // Send welcome email with QR code
 export const sendWelcomeEmail = async (user) => {
   try {
-    // Convert QR code to blob and then to base64
-    const qrBlob = dataURLtoBlob(user.qrCode);
-    const qrBase64 = await blobToBase64(qrBlob);
+    // Debug QR code data
+    const qrDebug = debugQRCode(user);
+
+    if (!qrDebug.isValid) {
+      console.error("Invalid QR code data:", qrDebug);
+      return {
+        success: false,
+        message: "Invalid QR code data",
+        error: "QR code is not a valid data URL",
+      };
+    }
 
     const templateParams = {
       to_name: user.name,
@@ -49,9 +81,14 @@ export const sendWelcomeEmail = async (user) => {
       backup_code: user.backupCode,
       department: user.department || "Not specified",
       registration_date: new Date(user.registeredAt).toLocaleDateString(),
-      qr_code_attachment: qrBase64,
+      qr_code_image: user.qrCode, // This should be used in the email template as {{qr_code_image}}
       reply_to: "noreply@accessidcode.com",
     };
+
+    console.log("Sending email with template params:", {
+      ...templateParams,
+      qr_code_image: templateParams.qr_code_image.substring(0, 50) + "...",
+    });
 
     const response = await emailjs.send(
       EMAIL_CONFIG.SERVICE_ID,
@@ -141,5 +178,26 @@ export const validateEmailConfig = () => {
     message: isConfigured
       ? "Email service is configured"
       : "Email service needs configuration. Please update EMAIL_CONFIG in emailService.js",
+  };
+};
+
+// Debug function to check QR code data
+export const debugQRCode = (user) => {
+  console.log("=== QR Code Debug Info ===");
+  console.log("User:", user.name);
+  console.log("QR Code exists:", !!user.qrCode);
+  console.log("QR Code type:", typeof user.qrCode);
+  console.log(
+    "QR Code starts with data:image:",
+    user.qrCode?.startsWith("data:image/")
+  );
+  console.log("QR Code length:", user.qrCode?.length);
+  console.log("QR Code preview:", user.qrCode?.substring(0, 100) + "...");
+  console.log("========================");
+
+  return {
+    isValid: user.qrCode && user.qrCode.startsWith("data:image/"),
+    length: user.qrCode?.length || 0,
+    type: typeof user.qrCode,
   };
 };

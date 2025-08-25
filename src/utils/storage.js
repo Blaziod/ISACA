@@ -1,29 +1,78 @@
 // Utility functions for local storage operations
 
+// Utility functions for cloud and local storage operations
+import {
+  getRegisteredUsers,
+  setRegisteredUsers,
+  getScanInList,
+  setScanInList,
+  getScanOutList,
+  setScanOutList,
+  getStorageStatus,
+  syncData,
+} from "./cloudStorage";
+
 export const storage = {
-  // Get data from localStorage
-  get: (key, defaultValue = []) => {
+  // Get data from cloud/localStorage
+  get: async (key, defaultValue = []) => {
     try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
+      switch (key) {
+        case STORAGE_KEYS.REGISTERED_USERS:
+          return await getRegisteredUsers();
+        case STORAGE_KEYS.SCAN_IN_LIST:
+          return await getScanInList();
+        case STORAGE_KEYS.SCAN_OUT_LIST:
+          return await getScanOutList();
+        default: {
+          // Fallback to localStorage for other keys
+          const item = localStorage.getItem(key);
+          return item ? JSON.parse(item) : defaultValue;
+        }
+      }
     } catch (error) {
-      console.error(`Error reading ${key} from localStorage:`, error);
-      return defaultValue;
+      console.error(`Error reading ${key}:`, error);
+      // Fallback to localStorage
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+      } catch {
+        return defaultValue;
+      }
     }
   },
 
-  // Set data in localStorage
-  set: (key, value) => {
+  // Set data in cloud/localStorage
+  set: async (key, value) => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      switch (key) {
+        case STORAGE_KEYS.REGISTERED_USERS:
+          await setRegisteredUsers(value);
+          break;
+        case STORAGE_KEYS.SCAN_IN_LIST:
+          await setScanInList(value);
+          break;
+        case STORAGE_KEYS.SCAN_OUT_LIST:
+          await setScanOutList(value);
+          break;
+        default: {
+          // Fallback to localStorage for other keys
+          localStorage.setItem(key, JSON.stringify(value));
+        }
+      }
       return true;
     } catch (error) {
-      console.error(`Error writing ${key} to localStorage:`, error);
-      return false;
+      console.error(`Error writing ${key}:`, error);
+      // Fallback to localStorage
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch {
+        return false;
+      }
     }
   },
 
-  // Remove item from localStorage
+  // Remove item from localStorage (cloud items are managed differently)
   remove: (key) => {
     try {
       localStorage.removeItem(key);
@@ -44,6 +93,12 @@ export const storage = {
       return false;
     }
   },
+
+  // Get storage status
+  getStatus: () => getStorageStatus(),
+
+  // Sync data
+  sync: () => syncData(),
 };
 
 // Data key constants

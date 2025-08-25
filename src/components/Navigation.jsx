@@ -1,5 +1,7 @@
+/* eslint-disable react/prop-types */
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   FaQrcode,
   FaKeyboard,
@@ -10,12 +12,17 @@ import {
   FaBars,
   FaTimes,
   FaTachometerAlt,
+  FaCloud,
+  FaWifi,
+  FaExclamationTriangle,
+  FaPowerOff,
 } from "react-icons/fa";
 import "./Navigation.css";
 
-const Navigation = () => {
+const Navigation = ({ storageStatus }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { logout, currentUser } = useAuth();
 
   const navItems = [
     { path: "/", icon: FaTachometerAlt, label: "Dashboard" },
@@ -27,8 +34,31 @@ const Navigation = () => {
     { path: "/scan-out-list", icon: FaSignOutAlt, label: "Scan Out List" },
   ];
 
+  const getStorageIcon = () => {
+    if (!storageStatus) return FaExclamationTriangle;
+    if (storageStatus.storageMode === "cloud") return FaCloud;
+    if (storageStatus.isOnline) return FaWifi;
+    return FaExclamationTriangle;
+  };
+
+  const getStorageStatus = () => {
+    if (!storageStatus)
+      return { text: "Initializing...", className: "warning" };
+    if (storageStatus.storageMode === "cloud")
+      return { text: "Cloud Storage", className: "success" };
+    if (storageStatus.isOnline)
+      return { text: "Local Storage", className: "warning" };
+    return { text: "Offline Mode", className: "error" };
+  };
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      logout();
+    }
   };
 
   return (
@@ -62,6 +92,37 @@ const Navigation = () => {
               </Link>
             );
           })}
+
+          {/* Storage Status Indicator */}
+          <div className="storage-status">
+            {(() => {
+              const status = getStorageStatus();
+              const IconComponent = getStorageIcon();
+              return (
+                <div
+                  className={`status-indicator ${status.className}`}
+                  title={status.text}
+                >
+                  <IconComponent className="status-icon" />
+                  <span className="status-text">{status.text}</span>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* User Section */}
+          <div className="user-section">
+            <div className="user-info">
+              <span className="username">{currentUser?.username}</span>
+            </div>
+            <button
+              className="logout-button"
+              onClick={handleLogout}
+              title="Logout"
+            >
+              <FaPowerOff />
+            </button>
+          </div>
         </div>
       </div>
     </nav>
