@@ -27,14 +27,25 @@ class StorageService {
 
   async checkApiAvailability() {
     try {
+      console.log("🔍 Checking API at:", `${API_BASE_URL}/health`);
       const response = await fetch(`${API_BASE_URL}/health`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
-      this.apiAvailable = response.ok;
+      console.log("📡 API Response status:", response.status);
+      console.log("📡 API Response ok:", response.ok);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("✅ API available! Response:", data);
+        this.apiAvailable = true;
+      } else {
+        console.log("❌ API not ok, status:", response.status);
+        this.apiAvailable = false;
+      }
     } catch (error) {
       console.warn(
-        "API not available, using localStorage only:",
+        "❌ API not available, using localStorage only:",
         error.message
       );
       this.apiAvailable = false;
