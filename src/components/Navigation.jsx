@@ -38,7 +38,11 @@ const Navigation = ({ storageStatus }) => {
 
   const getStorageIcon = () => {
     if (!storageStatus) return FaExclamationTriangle;
-    if (storageStatus.storageMode === "cloud") return FaCloud;
+    if (
+      storageStatus.storageMode === "cloud" ||
+      storageStatus.storageMode === "firebase"
+    )
+      return FaCloud;
     if (storageStatus.isOnline) return FaWifi;
     return FaExclamationTriangle;
   };
@@ -48,6 +52,8 @@ const Navigation = ({ storageStatus }) => {
       return { text: "Initializing...", className: "warning" };
     if (storageStatus.storageMode === "cloud")
       return { text: "Cloud Storage", className: "success" };
+    if (storageStatus.storageMode === "firebase")
+      return { text: "Firebase", className: "success" };
     if (storageStatus.isOnline)
       return { text: "Local Storage", className: "warning" };
     return { text: "Offline Mode", className: "error" };
@@ -66,13 +72,6 @@ const Navigation = ({ storageStatus }) => {
   return (
     <nav className="navigation">
       <div className="nav-container">
-        <div className="nav-brand">
-          <Link to="/" className="brand-link">
-            <FaQrcode className="brand-icon" />
-            <span className="brand-text">Access IDCODE</span>
-          </Link>
-        </div>
-
         <button className="mobile-toggle" onClick={toggleMenu}>
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
