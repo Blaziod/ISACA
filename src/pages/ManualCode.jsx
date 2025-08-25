@@ -18,6 +18,7 @@ const ManualCode = () => {
   const [searchField, setSearchField] = useState("auto"); // auto, id, name, email
   const [inputType, setInputType] = useState("single"); // single, json
   const [parsedJson, setParsedJson] = useState(null);
+  const [autoClearCountdown, setAutoClearCountdown] = useState(0);
   const [recentCodes, setRecentCodes] = useState(() => {
     return JSON.parse(localStorage.getItem("recentCodes") || "[]");
   });
@@ -28,13 +29,100 @@ const ManualCode = () => {
     setError("");
     setSearchResult(null);
 
-    // Try to detect and parse JSON
-    if (value.trim().startsWith("{") && value.trim().endsWith("}")) {
+    // Handle various malformed QR patterns
+    if (value.trim().startsWith("{") || value.includes("@")) {
       try {
-        const parsed = JSON.parse(value.trim());
-        setParsedJson(parsed);
-        setInputType("json");
+        let cleanedValue = value.trim();
+        let extractedEmail = null;
+        let extractedId = null;
+
+        // Method 1: Extract email from anywhere in the text using regex
+        const emailMatches = value.match(
+          /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+        );
+        if (emailMatches && emailMatches.length > 0) {
+          // Use the first valid email found
+          extractedEmail = emailMatches[0];
+        }
+
+        // Method 2: Try to extract ID from JSON-like structure
+        const idMatch = value.match(/"id"\s*:\s*"([^"]+)"/);
+        if (idMatch) {
+          extractedId = idMatch[1];
+        }
+
+        // Method 3: Try to fix and parse JSON if it looks like JSON
+        if (value.trim().startsWith("{")) {
+          try {
+            // Fix common JSON issues
+            let jsonFix = cleanedValue;
+
+            // Remove duplicate lines after the first closing brace
+            const firstBraceIndex = jsonFix.indexOf("}");
+            if (firstBraceIndex !== -1) {
+              jsonFix = jsonFix.substring(0, firstBraceIndex + 1);
+            }
+
+            // Try to fix incomplete "email" field name
+            jsonFix = jsonFix.replace(/"emai[^"]*"/, '"email"');
+
+            const parsed = JSON.parse(jsonFix);
+
+            // Use parsed data if successful
+            if (parsed.email && !extractedEmail) {
+              extractedEmail = parsed.email;
+            }
+            if (parsed.id && !extractedId) {
+              extractedId = parsed.id;
+            }
+
+            setParsedJson(parsed);
+            setInputType("json");
+          } catch {
+            // JSON parsing failed, use extracted values
+            const mockParsed = {};
+            if (extractedEmail) mockParsed.email = extractedEmail;
+            if (extractedId) mockParsed.id = extractedId;
+
+            if (Object.keys(mockParsed).length > 0) {
+              setParsedJson(mockParsed);
+              setInputType("json");
+            }
+          }
+        } else if (extractedEmail || extractedId) {
+          // Not JSON format but found email/id
+          const mockParsed = {};
+          if (extractedEmail) mockParsed.email = extractedEmail;
+          if (extractedId) mockParsed.id = extractedId;
+
+          setParsedJson(mockParsed);
+          setInputType("json");
+        }
+
+        // Auto-search with the best available data
+        if (extractedEmail) {
+          setSearchField("email");
+          performAutoSearch(extractedEmail);
+          return;
+        } else if (extractedId) {
+          setSearchField("id");
+          performAutoSearch(extractedId);
+          return;
+        }
       } catch {
+        // Final fallback: extract any email found
+        const emailMatch = value.match(
+          /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+        );
+        if (emailMatch) {
+          const email = emailMatch[0];
+          setParsedJson({ email });
+          setInputType("json");
+          setSearchField("email");
+          performAutoSearch(email);
+          return;
+        }
+
         setParsedJson(null);
         setInputType("single");
       }
@@ -44,6 +132,107 @@ const ManualCode = () => {
     }
   };
 
+  const performAutoSearch = async (searchValue) => {
+    if (!searchValue || isLoading) return;
+
+    setIsLoading(true);
+    setError("");
+    setSearchResult(null);
+
+    try {
+      const result = await processManualCode(searchValue);
+      setSearchResult(result);
+
+      if (result.success) {
+        // Add to recent codes
+        const newRecentCode = {
+          id: Date.now(),
+          code: searchValue,
+          user: result.data.name,
+          action: result.data.action,
+          timestamp: new Date().toISOString(),
+        };
+
+        const updatedRecentCodes = [newRecentCode, ...recentCodes.slice(0, 9)];
+        setRecentCodes(updatedRecentCodes);
+        localStorage.setItem("recentCodes", JSON.stringify(updatedRecentCodes));
+
+        // Clear the code input after successful auto-search (with countdown)
+        setAutoClearCountdown(2);
+        const countdownInterval = setInterval(() => {
+          setAutoClearCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(countdownInterval);
+              setCode("");
+              setParsedJson(null);
+              setInputType("single");
+              setSearchField("auto");
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    } catch {
+      setError("Failed to process code. Please try again.");
+    }
+
+    setIsLoading(false);
+  };
+
+  // Fuzzy email matching function
+  const findBestEmailMatch = (searchEmail, registeredUsers) => {
+    if (!searchEmail) return null;
+
+    const searchEmailLower = searchEmail.toLowerCase();
+
+    // Extract consecutive letter sequences (5+ characters) from search email
+    const searchSequences = searchEmailLower.match(/[a-z]{5,}/g) || [];
+
+    if (searchSequences.length === 0) {
+      // Fallback to exact match if no long sequences found
+      return registeredUsers.find(
+        (u) => u.email?.toLowerCase() === searchEmailLower
+      );
+    }
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    registeredUsers.forEach((user) => {
+      if (!user.email) return;
+
+      const userEmailLower = user.email.toLowerCase();
+      let score = 0;
+
+      // Check each search sequence against user email
+      searchSequences.forEach((sequence) => {
+        if (userEmailLower.includes(sequence)) {
+          score += sequence.length; // Longer matches get higher scores
+        }
+      });
+
+      // Bonus points for exact match
+      if (userEmailLower === searchEmailLower) {
+        score += 1000;
+      }
+
+      // Bonus points for domain match
+      const searchDomain = searchEmailLower.split("@")[1];
+      const userDomain = userEmailLower.split("@")[1];
+      if (searchDomain && userDomain && searchDomain === userDomain) {
+        score += 10;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = user;
+      }
+    });
+
+    // Only return match if we found meaningful similarity
+    return bestScore >= 5 ? bestMatch : null;
+  };
   const handleCodeSubmit = async (e) => {
     e.preventDefault();
     if (!code.trim()) {
@@ -78,6 +267,9 @@ const ManualCode = () => {
 
         // Clear the code input after successful processing
         setCode("");
+        setParsedJson(null);
+        setInputType("single");
+        setSearchField("auto");
       }
     } catch {
       setError("Failed to process code. Please try again.");
@@ -122,9 +314,8 @@ const ManualCode = () => {
     if (searchCriteria === "id") {
       user = registeredUsers.find((u) => u.id === searchValue);
     } else if (searchCriteria === "email") {
-      user = registeredUsers.find(
-        (u) => u.email?.toLowerCase() === searchValue.toLowerCase()
-      );
+      // Use fuzzy email matching
+      user = findBestEmailMatch(searchValue, registeredUsers);
     } else if (searchCriteria === "name") {
       user = registeredUsers.find(
         (u) =>
@@ -132,24 +323,30 @@ const ManualCode = () => {
           u.name?.toLowerCase().includes(searchValue.toLowerCase())
       );
     } else {
-      // Auto search - try all fields
+      // Auto search - try all fields with fuzzy email matching
       user = registeredUsers.find(
         (u) =>
           u.id === searchValue ||
-          u.email?.toLowerCase() === searchValue.toLowerCase() ||
           u.phone === searchValue ||
           u.backupCode === searchValue ||
           u.name?.toLowerCase().includes(searchValue.toLowerCase())
       );
+
+      // If no exact match found, try fuzzy email matching
+      if (!user) {
+        user = findBestEmailMatch(searchValue, registeredUsers);
+      }
     }
 
     if (!user) {
       const searchTypeText =
         inputType === "json" ? `using ${searchCriteria}` : "";
+      const fuzzyText =
+        searchCriteria === "email" ? " (tried fuzzy matching)" : "";
       return {
         success: false,
-        message: `User not found ${searchTypeText}. Please check the ${
-          searchCriteria === "auto" ? "code" : searchCriteria
+        message: `No matching user found ${searchTypeText}${fuzzyText}. Please verify the ${
+          searchCriteria === "auto" ? "information" : searchCriteria
         } and try again.`,
         data: null,
       };
@@ -183,9 +380,14 @@ const ManualCode = () => {
         scanOutEntry,
       ]);
 
+      const fuzzyMatchText =
+        searchCriteria === "email" && searchValue !== user.email
+          ? ` (matched via similar email: ${user.email})`
+          : "";
+
       return {
         success: true,
-        message: `${user.name} checked out successfully`,
+        message: `${user.name} checked out successfully${fuzzyMatchText}`,
         data: { ...user, action: "check-out", timestamp, method: "manual" },
       };
     } else {
@@ -205,9 +407,14 @@ const ManualCode = () => {
         scanInEntry,
       ]);
 
+      const fuzzyMatchText =
+        searchCriteria === "email" && searchValue !== user.email
+          ? ` (matched via similar email: ${user.email})`
+          : "";
+
       return {
         success: true,
-        message: `${user.name} checked in successfully`,
+        message: `${user.name} checked in successfully${fuzzyMatchText}`,
         data: { ...user, action: "check-in", timestamp, method: "manual" },
       };
     }
@@ -240,7 +447,8 @@ const ManualCode = () => {
           <div>
             <h1 className="code-title">Manual Code Entry</h1>
             <p className="code-subtitle">
-              Enter backup codes, user IDs, or search by name/email
+              Paste any QR code data (even corrupted) - Smart fuzzy email
+              matching with auto-search
             </p>
           </div>
         </div>
@@ -333,13 +541,15 @@ const ManualCode = () => {
                     className={`form-input code-input ${
                       inputType === "json" ? "json-input" : ""
                     }`}
-                    placeholder={`Single value: backup123, user@email.com, John Doe
-JSON format:
-{
-  "id": "USR8943749",
-  "name": "ABOYEJI OYEKANMI MOSES", 
-  "email": "OYEKANMI.ABOYEJI@FIRS.GOV.NG"
-}`}
+                    placeholder={`Paste any QR code data (auto-searches):
+
+Format 1: {"id":"USR8A","email":"AISHA.AHMED@FIRS.GOV.NG"}"AISHA.AHMED@FIRS.GOV.NG"}
+
+Format 2: {"id":"USAH4679N BABAYO","emaiS.GOV.NG"}
+AHMAN.GIDADO@FIRS.GOV.NG"}
+AHMAN.GIDADO@FIRS.GOV.NG"}
+
+Or enter manually: backup123, user@email.com, John Doe`}
                     autoComplete="off"
                     rows={inputType === "json" ? 6 : 1}
                   />
@@ -347,6 +557,7 @@ JSON format:
                     type="submit"
                     className="search-btn"
                     disabled={isLoading || !code.trim()}
+                    title="Manual search (QR codes auto-search)"
                   >
                     {isLoading ? <div className="loading"></div> : <FaSearch />}
                   </button>
@@ -355,11 +566,16 @@ JSON format:
                 <div className="input-type-indicator">
                   {inputType === "json" ? (
                     <span className="type-badge json-badge">
-                      <FaCode /> JSON Mode
+                      <FaCode /> QR Mode - Auto-Search
                     </span>
                   ) : (
                     <span className="type-badge single-badge">
-                      <FaKeyboard /> Single Value
+                      <FaKeyboard /> Manual Entry
+                    </span>
+                  )}
+                  {isLoading && (
+                    <span className="type-badge loading-badge">
+                      <div className="mini-loading"></div> Searching...
                     </span>
                   )}
                 </div>
@@ -385,6 +601,14 @@ JSON format:
                 {searchResult.success ? <FaCheckCircle /> : <FaTimesCircle />}
                 <div className="alert-content">
                   <div className="alert-message">{searchResult.message}</div>
+                  {autoClearCountdown > 0 &&
+                    searchResult.success &&
+                    inputType === "json" && (
+                      <div className="auto-clear-notice">
+                        🔄 Auto-clearing in {autoClearCountdown} second
+                        {autoClearCountdown !== 1 ? "s" : ""}...
+                      </div>
+                    )}
                   {searchResult.data && (
                     <div className="alert-details">
                       <div className="user-info">

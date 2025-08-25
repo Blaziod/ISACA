@@ -551,6 +551,27 @@
   border: 1px solid #ffcc02;
 }
 
+.loading-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #90caf9;
+  margin-left: 10px;
+}
+
+.mini-loading {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #90caf9;
+  border-top: 2px solid #1976d2;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Make textarea look good */
 .code-input {
   min-height: 45px;
@@ -575,5 +596,26 @@
   
   .json-preview {
     padding: 10px;
+  }
+}
+
+/* Auto-clear notice */
+.auto-clear-notice {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #e3f2fd;
+  color: #1565c0;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  border-left: 3px solid #2196f3;
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.8;
+  }
+  to {
+    opacity: 1;
   }
 }
