@@ -5,6 +5,7 @@ import {
   FaTimesCircle,
   FaUser,
 } from "react-icons/fa";
+import { storage, STORAGE_KEYS, generateId } from "../utils/storage";
 import "./ManualCode.css";
 
 const ManualCode = () => {
@@ -31,7 +32,7 @@ const ManualCode = () => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     try {
-      const result = processManualCode(code.trim());
+      const result = await processManualCode(code.trim());
       setSearchResult(result);
 
       if (result.success) {
@@ -58,10 +59,11 @@ const ManualCode = () => {
     setIsLoading(false);
   };
 
-  const processManualCode = (inputCode) => {
+  const processManualCode = async (inputCode) => {
     // Get registered users
-    const registeredUsers = JSON.parse(
-      localStorage.getItem("registeredUsers") || "[]"
+    const registeredUsers = await storage.get(
+      STORAGE_KEYS.REGISTERED_USERS,
+      []
     );
 
     // Find user by code, ID, email, or phone
@@ -83,8 +85,8 @@ const ManualCode = () => {
     }
 
     // Check current status
-    const scanInList = JSON.parse(localStorage.getItem("scanInList") || "[]");
-    const scanOutList = JSON.parse(localStorage.getItem("scanOutList") || "[]");
+    const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST, []);
+    const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST, []);
 
     const isCheckedIn = scanInList.some((entry) => entry.userId === user.id);
     const timestamp = new Date().toISOString();
@@ -95,7 +97,7 @@ const ManualCode = () => {
         (entry) => entry.userId !== user.id
       );
       const scanOutEntry = {
-        id: Date.now(),
+        id: generateId("OUT"),
         userId: user.id,
         name: user.name,
         email: user.email,
@@ -104,11 +106,11 @@ const ManualCode = () => {
         entryMethod: "manual",
       };
 
-      localStorage.setItem("scanInList", JSON.stringify(updatedScanInList));
-      localStorage.setItem(
-        "scanOutList",
-        JSON.stringify([...scanOutList, scanOutEntry])
-      );
+      await storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList);
+      await storage.set(STORAGE_KEYS.SCAN_OUT_LIST, [
+        ...scanOutList,
+        scanOutEntry,
+      ]);
 
       return {
         success: true,
@@ -118,7 +120,7 @@ const ManualCode = () => {
     } else {
       // User is checking in
       const scanInEntry = {
-        id: Date.now(),
+        id: generateId("IN"),
         userId: user.id,
         name: user.name,
         email: user.email,
@@ -127,10 +129,10 @@ const ManualCode = () => {
         entryMethod: "manual",
       };
 
-      localStorage.setItem(
-        "scanInList",
-        JSON.stringify([...scanInList, scanInEntry])
-      );
+      await storage.set(STORAGE_KEYS.SCAN_IN_LIST, [
+        ...scanInList,
+        scanInEntry,
+      ]);
 
       return {
         success: true,

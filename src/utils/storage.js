@@ -1,6 +1,6 @@
 // Utility functions for local storage operations
 
-// Utility functions for cloud and local storage operations
+// Utility functions for Firebase and local storage operations
 import {
   getRegisteredUsers,
   setRegisteredUsers,
@@ -11,7 +11,9 @@ import {
   getStorageStatus,
   syncData,
   waitForStorageInitialization,
-} from "./cloudStorage";
+  exportAllData,
+  importAllData,
+} from "./firebaseStorage";
 
 export const storage = {
   // Get data from cloud/localStorage
@@ -101,8 +103,12 @@ export const storage = {
   // Sync data
   sync: () => syncData(),
 
-  // Initialize storage (wait for API check)
+  // Initialize storage (wait for Firebase connection)
   initialize: () => waitForStorageInitialization(),
+
+  // Backup and restore functions
+  exportAll: () => exportAllData(),
+  importAll: (data) => importAllData(data),
 };
 
 // Data key constants
@@ -163,4 +169,13 @@ export const exportToCSV = (data, headers, filename) => {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+};
+
+// Re-export functions for direct access (already imported from firebaseStorage)
+export {
+  getStorageStatus,
+  syncData,
+  waitForStorageInitialization,
+  exportAllData,
+  importAllData,
 };

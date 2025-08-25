@@ -7,6 +7,7 @@ import {
   FaCheckCircle,
   FaTimesCircle,
 } from "react-icons/fa";
+import { storage, STORAGE_KEYS, generateId } from "../utils/storage";
 import "./QRScanner.css";
 
 const QRScanner = () => {
@@ -28,7 +29,7 @@ const QRScanner = () => {
         try {
           html5QrcodeScannerRef.current.clear();
         } catch (error) {
-          console.log("Scanner cleanup error:", error);
+          console.error("Error clearing scanner on unmount:", error);
         }
       }
     };
@@ -87,17 +88,16 @@ const QRScanner = () => {
     }
   };
 
-  const handleScanSuccess = (decodedText, decodedResult) => {
-    console.log("Scan result:", decodedText, decodedResult);
-
+  // eslint-disable-next-line no-unused-vars
+  const handleScanSuccess = async (decodedText, decodedResult) => {
     // Process the scanned QR code
-    processQRCode(decodedText);
+    await processQRCode(decodedText);
 
     // Stop scanning after successful scan
     stopScanning();
   };
 
-  const processQRCode = (qrData) => {
+  const processQRCode = async (qrData) => {
     try {
       // Parse QR data (assuming it's JSON with user info)
       let userData;
@@ -109,8 +109,9 @@ const QRScanner = () => {
       }
 
       // Check if user is registered
-      const registeredUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]"
+      const registeredUsers = await storage.get(
+        STORAGE_KEYS.REGISTERED_USERS,
+        []
       );
       const user = registeredUsers.find(
         (u) => u.id === userData.id || u.email === userData.email
@@ -126,10 +127,8 @@ const QRScanner = () => {
       }
 
       // Check current status
-      const scanInList = JSON.parse(localStorage.getItem("scanInList") || "[]");
-      const scanOutList = JSON.parse(
-        localStorage.getItem("scanOutList") || "[]"
-      );
+      const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST, []);
+      const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST, []);
 
       const isCheckedIn = scanInList.some((entry) => entry.userId === user.id);
       const timestamp = new Date().toISOString();
@@ -153,7 +152,7 @@ const QRScanner = () => {
         );
 
         const scanOutEntry = {
-          id: Date.now(),
+          id: generateId("OUT"),
           userId: user.id,
           name: user.name,
           email: user.email,
@@ -164,11 +163,11 @@ const QRScanner = () => {
           type: "scan-out",
         };
 
-        localStorage.setItem("scanInList", JSON.stringify(updatedScanInList));
-        localStorage.setItem(
-          "scanOutList",
-          JSON.stringify([...scanOutList, scanOutEntry])
-        );
+        await storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList);
+        await storage.set(STORAGE_KEYS.SCAN_OUT_LIST, [
+          ...scanOutList,
+          scanOutEntry,
+        ]);
 
         setScanResult({
           success: true,
@@ -178,7 +177,7 @@ const QRScanner = () => {
       } else {
         // User is checking in
         const scanInEntry = {
-          id: Date.now(),
+          id: generateId("IN"),
           userId: user.id,
           name: user.name,
           email: user.email,
@@ -187,10 +186,10 @@ const QRScanner = () => {
           type: "scan-in",
         };
 
-        localStorage.setItem(
-          "scanInList",
-          JSON.stringify([...scanInList, scanInEntry])
-        );
+        await storage.set(STORAGE_KEYS.SCAN_IN_LIST, [
+          ...scanInList,
+          scanInEntry,
+        ]);
 
         setScanResult({
           success: true,

@@ -28,20 +28,16 @@ class StorageService {
 
   async checkApiAvailability() {
     try {
-      console.log("🔍 Checking API at:", `${API_BASE_URL}/health`);
       const response = await fetch(`${API_BASE_URL}/health`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
-      console.log("📡 API Response status:", response.status);
-      console.log("📡 API Response ok:", response.ok);
 
       if (response.ok) {
+        // eslint-disable-next-line no-unused-vars
         const data = await response.json();
-        console.log("✅ API available! Response:", data);
         this.apiAvailable = true;
       } else {
-        console.log("❌ API not ok, status:", response.status);
         this.apiAvailable = false;
       }
     } catch (error) {
@@ -52,10 +48,6 @@ class StorageService {
       this.apiAvailable = false;
     } finally {
       this.initialized = true;
-      console.log(
-        "🔧 Storage service initialized. API available:",
-        this.apiAvailable
-      );
     }
   }
 
@@ -115,8 +107,6 @@ class StorageService {
   async syncLocalToRemote() {
     if (!this.apiAvailable || !this.isOnline) return;
 
-    console.log("Syncing local data to remote...");
-
     try {
       for (const key of Object.values(STORAGE_KEYS)) {
         const localData = localStorage.getItem(key);
@@ -124,7 +114,6 @@ class StorageService {
           await this.setData(key, JSON.parse(localData));
         }
       }
-      console.log("Sync completed successfully");
     } catch (error) {
       console.error("Sync failed:", error);
     }
@@ -134,13 +123,10 @@ class StorageService {
   async syncRemoteToLocal() {
     if (!this.apiAvailable || !this.isOnline) return;
 
-    console.log("Syncing remote data to local...");
-
     try {
       for (const key of Object.values(STORAGE_KEYS)) {
         await this.getData(key); // This will automatically update localStorage
       }
-      console.log("Remote sync completed");
     } catch (error) {
       console.error("Remote sync failed:", error);
     }

@@ -31,7 +31,11 @@ const ScanInList = () => {
   const [sortField, setSortField] = useState("timestamp");
 
   useEffect(() => {
-    loadScanInData();
+    const initializeAndLoad = async () => {
+      await storage.initialize();
+      loadScanInData();
+    };
+    initializeAndLoad();
   }, []);
 
   useEffect(() => {
@@ -39,8 +43,8 @@ const ScanInList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanInList, searchTerm, dateFilter, sortOrder, sortField]);
 
-  const loadScanInData = () => {
-    const data = storage.get(STORAGE_KEYS.SCAN_IN_LIST, []);
+  const loadScanInData = async () => {
+    const data = await storage.get(STORAGE_KEYS.SCAN_IN_LIST, []);
     setScanInList(data);
   };
 

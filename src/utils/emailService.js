@@ -46,14 +46,12 @@ export const testEmailService = async (testEmail = "test@example.com") => {
       templateParams
     );
 
-    console.log("Test email sent successfully:", response);
     return {
       success: true,
       message: "Test email sent successfully",
       response,
     };
   } catch (error) {
-    console.error("Test email failed:", error);
     return {
       success: false,
       message: "Test email failed",
@@ -96,11 +94,6 @@ export const sendWelcomeEmail = async (user) => {
       reply_to: "noreply@accessidcode.com",
     };
 
-    console.log("Sending email with template params:", {
-      ...templateParams,
-      qr_code_image: templateParams.qr_code_image.substring(0, 50) + "...",
-    });
-
     const response = await emailjs.send(
       EMAIL_CONFIG.SERVICE_ID,
       EMAIL_CONFIG.TEMPLATE_ID,
@@ -113,7 +106,6 @@ export const sendWelcomeEmail = async (user) => {
       response,
     };
   } catch (error) {
-    console.error("Email sending failed:", error);
     return {
       success: false,
       message: "Failed to send welcome email",
@@ -194,18 +186,6 @@ export const validateEmailConfig = () => {
 
 // Debug function to check QR code data
 export const debugQRCode = (user) => {
-  console.log("=== QR Code Debug Info ===");
-  console.log("User:", user.name);
-  console.log("QR Code exists:", !!user.qrCode);
-  console.log("QR Code type:", typeof user.qrCode);
-  console.log(
-    "QR Code starts with data:image:",
-    user.qrCode?.startsWith("data:image/")
-  );
-  console.log("QR Code length:", user.qrCode?.length);
-  console.log("QR Code preview:", user.qrCode?.substring(0, 100) + "...");
-  console.log("========================");
-
   return {
     isValid: user.qrCode && user.qrCode.startsWith("data:image/"),
     length: user.qrCode?.length || 0,

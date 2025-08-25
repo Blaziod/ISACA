@@ -10,6 +10,7 @@ import Register from "./pages/Register";
 import RegisteredList from "./pages/RegisteredList";
 import ScanInList from "./pages/ScanInList";
 import ScanOutList from "./pages/ScanOutList";
+import DataManagement from "./pages/DataManagement";
 import { storage } from "./utils/storage";
 import "./App.css";
 
@@ -72,6 +73,7 @@ function App() {
                 <Route path="/registered-list" element={<RegisteredList />} />
                 <Route path="/scan-in-list" element={<ScanInList />} />
                 <Route path="/scan-out-list" element={<ScanOutList />} />
+                <Route path="/data-management" element={<DataManagement />} />
               </Routes>
             </main>
           </ProtectedRoute>

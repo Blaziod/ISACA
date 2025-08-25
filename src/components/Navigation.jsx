@@ -16,6 +16,7 @@ import {
   FaWifi,
   FaExclamationTriangle,
   FaPowerOff,
+  FaDatabase,
 } from "react-icons/fa";
 import "./Navigation.css";
 
@@ -32,6 +33,7 @@ const Navigation = ({ storageStatus }) => {
     { path: "/registered-list", icon: FaUsers, label: "Reg List" },
     { path: "/scan-in-list", icon: FaSignInAlt, label: "Scan In List" },
     { path: "/scan-out-list", icon: FaSignOutAlt, label: "Scan Out List" },
+    { path: "/data-management", icon: FaDatabase, label: "Data Mgmt" },
   ];
 
   const getStorageIcon = () => {
