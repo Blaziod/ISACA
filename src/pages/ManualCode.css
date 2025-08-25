@@ -446,3 +446,134 @@
 .code-input:focus + .search-btn {
   box-shadow: 0 0 0 2px rgba(156, 39, 176, 0.3);
 }
+
+/* JSON Mode Styles */
+.search-options {
+  margin: 15px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.search-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.radio-option input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.json-preview {
+  margin: 15px 0;
+  padding: 15px;
+  background: #f1f3f4;
+  border-radius: 8px;
+  border-left: 4px solid #9c27b0;
+}
+
+.json-icon {
+  color: #9c27b0;
+  margin-right: 8px;
+}
+
+.json-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.json-content {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.json-field {
+  margin: 5px 0;
+  color: #495057;
+}
+
+.json-field strong {
+  color: #9c27b0;
+}
+
+.json-input {
+  font-family: 'Courier New', monospace;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.input-type-indicator {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.json-badge {
+  background: #e8f5e8;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.single-badge {
+  background: #fff3e0;
+  color: #f57c00;
+  border: 1px solid #ffcc02;
+}
+
+/* Make textarea look good */
+.code-input {
+  min-height: 45px;
+  resize: vertical;
+}
+
+.code-input.json-input {
+  min-height: 120px;
+  line-height: 1.4;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .radio-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .search-options {
+    padding: 10px;
+  }
+  
+  .json-preview {
+    padding: 10px;
+  }
+}

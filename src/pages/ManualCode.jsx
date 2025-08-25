@@ -4,6 +4,8 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaUser,
+  FaSearch,
+  FaCode,
 } from "react-icons/fa";
 import { storage, STORAGE_KEYS, generateId } from "../utils/storage";
 import "./ManualCode.css";
@@ -13,9 +15,34 @@ const ManualCode = () => {
   const [searchResult, setSearchResult] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [searchField, setSearchField] = useState("auto"); // auto, id, name, email
+  const [inputType, setInputType] = useState("single"); // single, json
+  const [parsedJson, setParsedJson] = useState(null);
   const [recentCodes, setRecentCodes] = useState(() => {
     return JSON.parse(localStorage.getItem("recentCodes") || "[]");
   });
+
+  const handleCodeChange = (e) => {
+    const value = e.target.value;
+    setCode(value);
+    setError("");
+    setSearchResult(null);
+
+    // Try to detect and parse JSON
+    if (value.trim().startsWith("{") && value.trim().endsWith("}")) {
+      try {
+        const parsed = JSON.parse(value.trim());
+        setParsedJson(parsed);
+        setInputType("json");
+      } catch {
+        setParsedJson(null);
+        setInputType("single");
+      }
+    } else {
+      setParsedJson(null);
+      setInputType("single");
+    }
+  };
 
   const handleCodeSubmit = async (e) => {
     e.preventDefault();
@@ -66,20 +93,64 @@ const ManualCode = () => {
       []
     );
 
-    // Find user by code, ID, email, or phone
-    const user = registeredUsers.find(
-      (u) =>
-        u.id === inputCode ||
-        u.email === inputCode ||
-        u.phone === inputCode ||
-        u.backupCode === inputCode ||
-        u.name.toLowerCase().includes(inputCode.toLowerCase())
-    );
+    let searchValue = inputCode;
+    let searchCriteria = "auto";
+
+    // Handle JSON input
+    if (inputType === "json" && parsedJson) {
+      if (searchField === "auto") {
+        // Auto-detect: try ID first, then email, then name
+        if (parsedJson.id) {
+          searchValue = parsedJson.id;
+          searchCriteria = "id";
+        } else if (parsedJson.email) {
+          searchValue = parsedJson.email;
+          searchCriteria = "email";
+        } else if (parsedJson.name) {
+          searchValue = parsedJson.name;
+          searchCriteria = "name";
+        }
+      } else {
+        // Use specific field
+        searchValue = parsedJson[searchField] || "";
+        searchCriteria = searchField;
+      }
+    }
+
+    // Find user based on search criteria
+    let user;
+    if (searchCriteria === "id") {
+      user = registeredUsers.find((u) => u.id === searchValue);
+    } else if (searchCriteria === "email") {
+      user = registeredUsers.find(
+        (u) => u.email?.toLowerCase() === searchValue.toLowerCase()
+      );
+    } else if (searchCriteria === "name") {
+      user = registeredUsers.find(
+        (u) =>
+          u.name?.toLowerCase() === searchValue.toLowerCase() ||
+          u.name?.toLowerCase().includes(searchValue.toLowerCase())
+      );
+    } else {
+      // Auto search - try all fields
+      user = registeredUsers.find(
+        (u) =>
+          u.id === searchValue ||
+          u.email?.toLowerCase() === searchValue.toLowerCase() ||
+          u.phone === searchValue ||
+          u.backupCode === searchValue ||
+          u.name?.toLowerCase().includes(searchValue.toLowerCase())
+      );
+    }
 
     if (!user) {
+      const searchTypeText =
+        inputType === "json" ? `using ${searchCriteria}` : "";
       return {
         success: false,
-        message: "User not found. Please check the code and try again.",
+        message: `User not found ${searchTypeText}. Please check the ${
+          searchCriteria === "auto" ? "code" : searchCriteria
+        } and try again.`,
         data: null,
       };
     }
@@ -179,25 +250,118 @@ const ManualCode = () => {
             <form onSubmit={handleCodeSubmit} className="code-form">
               <div className="form-group">
                 <label htmlFor="code" className="form-label">
-                  Enter Code, ID, Email, or Name
+                  Enter Code, ID, Email, Name, or JSON
                 </label>
+
+                {/* Search Field Selector */}
+                {inputType === "json" && parsedJson && (
+                  <div className="search-options">
+                    <label className="search-label">Search by:</label>
+                    <div className="radio-group">
+                      <label className="radio-option">
+                        <input
+                          type="radio"
+                          name="searchField"
+                          value="auto"
+                          checked={searchField === "auto"}
+                          onChange={(e) => setSearchField(e.target.value)}
+                        />
+                        <span>Auto-detect</span>
+                      </label>
+                      {parsedJson.id && (
+                        <label className="radio-option">
+                          <input
+                            type="radio"
+                            name="searchField"
+                            value="id"
+                            checked={searchField === "id"}
+                            onChange={(e) => setSearchField(e.target.value)}
+                          />
+                          <span>ID ({parsedJson.id})</span>
+                        </label>
+                      )}
+                      {parsedJson.name && (
+                        <label className="radio-option">
+                          <input
+                            type="radio"
+                            name="searchField"
+                            value="name"
+                            checked={searchField === "name"}
+                            onChange={(e) => setSearchField(e.target.value)}
+                          />
+                          <span>
+                            Name ({parsedJson.name.substring(0, 20)}...)
+                          </span>
+                        </label>
+                      )}
+                      {parsedJson.email && (
+                        <label className="radio-option">
+                          <input
+                            type="radio"
+                            name="searchField"
+                            value="email"
+                            checked={searchField === "email"}
+                            onChange={(e) => setSearchField(e.target.value)}
+                          />
+                          <span>Email ({parsedJson.email})</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* JSON Preview */}
+                {inputType === "json" && parsedJson && (
+                  <div className="json-preview">
+                    <FaCode className="json-icon" />
+                    <span className="json-label">Detected JSON:</span>
+                    <div className="json-content">
+                      {Object.entries(parsedJson).map(([key, value]) => (
+                        <div key={key} className="json-field">
+                          <strong>{key}:</strong> {String(value)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="input-wrapper">
-                  <input
-                    type="text"
+                  <textarea
                     id="code"
                     value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    className="form-input code-input"
-                    placeholder="e.g., backup123, user@email.com, John Doe"
+                    onChange={handleCodeChange}
+                    className={`form-input code-input ${
+                      inputType === "json" ? "json-input" : ""
+                    }`}
+                    placeholder={`Single value: backup123, user@email.com, John Doe
+JSON format:
+{
+  "id": "USR8943749",
+  "name": "ABOYEJI OYEKANMI MOSES", 
+  "email": "OYEKANMI.ABOYEJI@FIRS.GOV.NG"
+}`}
                     autoComplete="off"
+                    rows={inputType === "json" ? 6 : 1}
                   />
                   <button
                     type="submit"
                     className="search-btn"
                     disabled={isLoading || !code.trim()}
                   >
-                    {isLoading ? <div className="loading"></div> : "Search"}
+                    {isLoading ? <div className="loading"></div> : <FaSearch />}
                   </button>
+                </div>
+
+                <div className="input-type-indicator">
+                  {inputType === "json" ? (
+                    <span className="type-badge json-badge">
+                      <FaCode /> JSON Mode
+                    </span>
+                  ) : (
+                    <span className="type-badge single-badge">
+                      <FaKeyboard /> Single Value
+                    </span>
+                  )}
                 </div>
               </div>
             </form>
