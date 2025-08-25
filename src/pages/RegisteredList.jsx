@@ -196,14 +196,22 @@ const RegisteredList = () => {
       user.name,
       user.email,
       user.phone,
-      user.department || "-",
+      user.organisation || "-",
       user.status,
       new Date(user.registeredAt).toLocaleDateString(),
     ]);
 
     doc.autoTable({
       head: [
-        ["ID", "Name", "Email", "Phone", "Department", "Status", "Registered"],
+        [
+          "ID",
+          "Name",
+          "Email",
+          "Phone",
+          "Organisation",
+          "Status",
+          "Registered",
+        ],
       ],
       body: tableData,
       startY: 50,
@@ -233,7 +241,7 @@ const RegisteredList = () => {
           `"${user.name}"`,
           user.email,
           user.phone,
-          `"${user.department || ""}"`,
+          `"${user.organisation || ""}"`,
           user.status,
           user.backupCode,
           new Date(user.registeredAt).toLocaleDateString(),
@@ -282,7 +290,7 @@ const RegisteredList = () => {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Department</th>
+                <th>Organisation</th>
                 <th>Status</th>
                 <th>Registered</th>
               </tr>
@@ -296,7 +304,7 @@ const RegisteredList = () => {
                   <td>${user.name}</td>
                   <td>${user.email}</td>
                   <td>${user.phone}</td>
-                  <td>${user.department || "-"}</td>
+                  <td>${user.organisation || "-"}</td>
                   <td class="status-${user.status}">${user.status}</td>
                   <td>${new Date(user.registeredAt).toLocaleDateString()}</td>
                 </tr>
@@ -496,7 +504,7 @@ const RegisteredList = () => {
                         ))}
                     </th>
                     <th>Phone</th>
-                    <th>Department</th>
+                    <th>Organisation</th>
                     <th>Status</th>
                     <th>QR Code</th>
                     <th
@@ -535,7 +543,7 @@ const RegisteredList = () => {
                       <td className="user-email">{user.email}</td>
                       <td className="user-phone">{user.phone}</td>
                       <td className="user-department">
-                        {user.department || "-"}
+                        {user.organisation || "-"}
                       </td>
                       <td>
                         <select
