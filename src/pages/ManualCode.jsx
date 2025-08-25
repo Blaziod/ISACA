@@ -361,6 +361,16 @@ const ManualCode = () => {
 
     if (isCheckedIn) {
       // User is checking out
+      const checkInEntry = scanInList.find((entry) => entry.userId === user.id);
+      const checkInTime = checkInEntry ? checkInEntry.timestamp : null;
+
+      // Calculate duration in minutes
+      const duration = checkInTime
+        ? Math.floor(
+            (new Date(timestamp) - new Date(checkInTime)) / (1000 * 60)
+          )
+        : 0;
+
       const updatedScanInList = scanInList.filter(
         (entry) => entry.userId !== user.id
       );
@@ -370,6 +380,8 @@ const ManualCode = () => {
         name: user.name,
         email: user.email,
         timestamp: timestamp,
+        checkInTime: checkInTime,
+        duration: duration,
         type: "manual-out",
         entryMethod: "manual",
       };

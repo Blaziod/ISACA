@@ -390,3 +390,50 @@
     opacity: 1;
   }
 }
+
+/* Countdown Alert Styles */
+.countdown-alert {
+  margin-top: 15px;
+  padding: 15px;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 1px solid #f39c12;
+  border-radius: 8px;
+  animation: countdownPulse 1s ease-in-out infinite alternate;
+}
+
+.countdown-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.countdown-text {
+  font-weight: 600;
+  color: #e67e22;
+  font-size: 14px;
+  text-align: center;
+}
+
+.countdown-bar {
+  height: 4px;
+  background: rgba(230, 126, 34, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.countdown-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #e67e22 0%, #f39c12 100%);
+  border-radius: 2px;
+}
+
+@keyframes countdownPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 10px rgba(243, 156, 18, 0.2);
+  }
+  100% {
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(243, 156, 18, 0.4);
+  }
+}
