@@ -5,6 +5,7 @@ import {
   validateEmailConfig,
   initEmailJS,
 } from "../utils/emailService";
+import { storage, STORAGE_KEYS } from "../utils/storage";
 import {
   FaUsers,
   FaSearch,
@@ -49,11 +50,16 @@ const RegisteredList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [users, searchTerm, filterStatus, sortOrder, sortField]);
 
-  const loadUsers = () => {
-    const registeredUsers = JSON.parse(
-      localStorage.getItem("registeredUsers") || "[]"
-    );
-    setUsers(registeredUsers);
+  const loadUsers = async () => {
+    try {
+      await storage.initialize();
+      const registeredUsers = await storage.get(STORAGE_KEYS.REGISTERED_USERS);
+      setUsers(registeredUsers);
+    } catch (error) {
+      console.error("Error loading users:", error);
+      // Fallback to empty array
+      setUsers([]);
+    }
   };
 
   const filterAndSortUsers = () => {
@@ -129,17 +135,15 @@ const RegisteredList = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (userToDelete) {
       const updatedUsers = users.filter((user) => user.id !== userToDelete.id);
       setUsers(updatedUsers);
-      localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
+      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
 
       // Also remove from scan lists
-      const scanInList = JSON.parse(localStorage.getItem("scanInList") || "[]");
-      const scanOutList = JSON.parse(
-        localStorage.getItem("scanOutList") || "[]"
-      );
+      const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST);
+      const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST);
 
       const updatedScanInList = scanInList.filter(
         (entry) => entry.userId !== userToDelete.id
@@ -148,20 +152,20 @@ const RegisteredList = () => {
         (entry) => entry.userId !== userToDelete.id
       );
 
-      localStorage.setItem("scanInList", JSON.stringify(updatedScanInList));
-      localStorage.setItem("scanOutList", JSON.stringify(updatedScanOutList));
+      await storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList);
+      await storage.set(STORAGE_KEYS.SCAN_OUT_LIST, updatedScanOutList);
     }
 
     setShowDeleteModal(false);
     setUserToDelete(null);
   };
 
-  const handleStatusChange = (userId, newStatus) => {
+  const handleStatusChange = async (userId, newStatus) => {
     const updatedUsers = users.map((user) =>
       user.id === userId ? { ...user, status: newStatus } : user
     );
     setUsers(updatedUsers);
-    localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
+    await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
   };
 
   const exportToPDF = () => {
@@ -344,7 +348,7 @@ const RegisteredList = () => {
       );
 
       setUsers(updatedUsers);
-      localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
+      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
     } catch (error) {
       console.error("Error generating QR code:", error);
     }

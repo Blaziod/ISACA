@@ -7,11 +7,7 @@ import {
   initEmailJS,
   debugQRCode,
 } from "../utils/emailService";
-import {
-  getRegisteredUsers,
-  setRegisteredUsers,
-  waitForStorageInitialization,
-} from "../utils/cloudStorage";
+import { storage, STORAGE_KEYS } from "../utils/storage";
 import {
   FaUserPlus,
   FaUpload,
@@ -57,7 +53,7 @@ const Register = () => {
   // Initialize EmailJS and storage on component mount
   useEffect(() => {
     const initializeComponent = async () => {
-      await waitForStorageInitialization();
+      await storage.initialize();
       initEmailJS();
       const emailConfig = validateEmailConfig();
       setIsEmailConfigured(emailConfig.isConfigured);
@@ -119,7 +115,7 @@ const Register = () => {
 
     try {
       // Check if user already exists
-      const existingUsers = await getRegisteredUsers();
+      const existingUsers = await storage.get(STORAGE_KEYS.REGISTERED_USERS);
       const userExists = existingUsers.some(
         (user) => user.email === formData.email || user.phone === formData.phone
       );
@@ -166,7 +162,7 @@ const Register = () => {
 
       // Save to cloud storage
       const updatedUsers = [...existingUsers, newUser];
-      await setRegisteredUsers(updatedUsers);
+      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
 
       // Store the generated user for QR display
       setLastGeneratedUser(newUser);
@@ -375,7 +371,7 @@ const Register = () => {
     setIsSubmitting(true);
 
     try {
-      const existingUsers = await getRegisteredUsers();
+      const existingUsers = await storage.get(STORAGE_KEYS.REGISTERED_USERS);
       const newUsers = [];
       const skippedUsers = [];
 
@@ -437,7 +433,7 @@ const Register = () => {
 
       // Save to cloud storage
       const updatedUsers = [...existingUsers, ...newUsers];
-      await setRegisteredUsers(updatedUsers);
+      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
 
       setSubmitMessage({
         type: "success",

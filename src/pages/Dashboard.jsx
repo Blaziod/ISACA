@@ -10,6 +10,7 @@ import {
   FaChartBar,
   FaClock,
 } from "react-icons/fa";
+import { storage, STORAGE_KEYS } from "../utils/storage";
 import "./Dashboard.css";
 
 const Dashboard = () => {
@@ -23,31 +24,37 @@ const Dashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    // Load stats from localStorage
-    const registered = JSON.parse(
-      localStorage.getItem("registeredUsers") || "[]"
-    );
-    const scanInList = JSON.parse(localStorage.getItem("scanInList") || "[]");
-    const scanOutList = JSON.parse(localStorage.getItem("scanOutList") || "[]");
+    const loadStats = async () => {
+      try {
+        await storage.initialize();
+        const registered = await storage.get(STORAGE_KEYS.REGISTERED_USERS);
+        const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST);
+        const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST);
 
-    setStats({
-      totalRegistered: registered.length,
-      checkedIn: scanInList.length,
-      checkedOut: scanOutList.length,
-      lastActivity:
-        scanInList.length > 0 || scanOutList.length > 0
-          ? new Date(
-              Math.max(
-                scanInList.length > 0
-                  ? new Date(scanInList[scanInList.length - 1].timestamp)
-                  : 0,
-                scanOutList.length > 0
-                  ? new Date(scanOutList[scanOutList.length - 1].timestamp)
-                  : 0
-              )
-            )
-          : null,
-    });
+        setStats({
+          totalRegistered: registered.length,
+          checkedIn: scanInList.length,
+          checkedOut: scanOutList.length,
+          lastActivity:
+            scanInList.length > 0 || scanOutList.length > 0
+              ? new Date(
+                  Math.max(
+                    scanInList.length > 0
+                      ? new Date(scanInList[scanInList.length - 1].timestamp)
+                      : 0,
+                    scanOutList.length > 0
+                      ? new Date(scanOutList[scanOutList.length - 1].timestamp)
+                      : 0
+                  )
+                )
+              : null,
+        });
+      } catch (error) {
+        console.error("Error loading dashboard stats:", error);
+      }
+    };
+
+    loadStats();
 
     // Update time every second
     const timer = setInterval(() => {

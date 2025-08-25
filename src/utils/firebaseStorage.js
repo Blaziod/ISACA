@@ -31,23 +31,28 @@ class FirebaseStorageService {
   }
 
   async initializeService() {
+    console.log("🔥 Initializing Firebase Storage Service...");
     try {
       // Test Firebase connection by trying to read existing data
       const testRef = ref(database, STORAGE_KEYS.REGISTERED_USERS);
       await get(testRef);
 
       this.firebaseAvailable = true;
+      console.log("✅ Firebase connection successful");
 
       // Load existing data to local cache
       await this.loadCacheFromFirebase();
-      // eslint-disable-next-line no-unused-vars
     } catch (error) {
+      console.error("❌ Firebase initialization failed:", error);
       this.firebaseAvailable = false;
 
       // Load from localStorage as fallback
       this.loadCacheFromLocalStorage();
     } finally {
       this.initialized = true;
+      console.log(
+        `🔥 Firebase Storage Service initialized. firebaseAvailable: ${this.firebaseAvailable}, isOnline: ${this.isOnline}`
+      );
     }
   }
 
@@ -126,6 +131,8 @@ class FirebaseStorageService {
 
   // Set data with Firebase sync
   async setData(key, data) {
+    console.log(`🔥 setData called for ${key}:`, data);
+
     // Always update cache first
     this.localCache.set(key, data);
 
@@ -135,8 +142,10 @@ class FirebaseStorageService {
     // Try to sync to Firebase if available
     if (this.firebaseAvailable && this.isOnline) {
       try {
+        console.log(`🔥 Attempting Firebase write for ${key}...`);
         const dataRef = ref(database, key);
         await set(dataRef, data);
+        console.log(`✅ Firebase write successful for ${key}`);
       } catch (error) {
         console.warn(
           `⚠️ Firebase set failed for ${key}, data saved locally:`,
@@ -144,6 +153,10 @@ class FirebaseStorageService {
         );
         // Data is still saved locally, so this is not a critical failure
       }
+    } else {
+      console.log(
+        `⚠️ Firebase not available or offline for ${key}. firebaseAvailable: ${this.firebaseAvailable}, isOnline: ${this.isOnline}`
+      );
     }
 
     return data;
