@@ -7,7 +7,15 @@ A React-based access control system with QR code scanning, user registration, an
 - **QR Code Scanning** - Real-time QR code scanning for check-in/check-out
 - **Manual Code Entry** - Backup option for manual entry when QR fails
 - **User Registration** - Single and bulk user registration with automated QR code generation
+  - Full Name, Email, Phone Number (required)
+  - ISACA ID, Participation Category, Organisation, Designation (optional)
+  - Automated backup code generation
+- **Bulk Registration** - CSV/JSON file upload for bulk user registration
+  - Template download with proper format
+  - Supports CSV files exported from Excel/Google Sheets
+  - Automatic field mapping and validation
 - **Email Notifications** - Automated welcome emails with QR codes sent to new users
+- **Cloud Storage** - Hybrid local/cloud storage with automatic sync
 - **Registered Users Management** - View, manage, and download QR codes for all users
 - **Attendance Tracking** - Comprehensive scan in/out lists with timestamps and export capabilities
 
@@ -34,6 +42,38 @@ A React-based access control system with QR code scanning, user registration, an
    ```
 
 ## Core Functionality
+
+### Registration Fields
+
+The system supports the following user fields:
+
+**Required Fields:**
+
+- Full Name
+- Email Address
+- Phone Number
+
+**Optional Fields:**
+
+- ISACA ID
+- Participation Category (Physical/Virtual/Hybrid)
+- Organisation
+- Designation (Job Title)
+- Backup Code (auto-generated if not provided)
+- Notes
+
+### Bulk Registration
+
+The system supports bulk user registration via CSV or JSON files:
+
+1. **Download Template** - Get the correct format template
+2. **Prepare Data** - Fill in user data following the CSV format:
+   ```
+   S/N,Name,Phone Number,Email,ISACA ID,Participation Category,Organisation,Designation
+   ```
+3. **Upload File** - Upload CSV or JSON file via the bulk upload interface
+4. **Preview & Confirm** - Review data before final registration
+5. **Automated Processing** - QR codes generated and emails sent automatically
 
 ### QR Code Workflow
 

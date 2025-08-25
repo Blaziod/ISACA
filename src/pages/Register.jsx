@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { useState, useRef, useEffect } from "react";
 import QRCode from "qrcode";
 import {
@@ -8,6 +7,11 @@ import {
   initEmailJS,
   debugQRCode,
 } from "../utils/emailService";
+import {
+  getRegisteredUsers,
+  setRegisteredUsers,
+  waitForStorageInitialization,
+} from "../utils/cloudStorage";
 import {
   FaUserPlus,
   FaUpload,
@@ -21,6 +25,9 @@ import {
   FaIdCard,
   FaDownload,
   FaMailBulk,
+  FaBuilding,
+  FaUserTie,
+  FaUsers,
 } from "react-icons/fa";
 import "./Register.css";
 
@@ -29,7 +36,10 @@ const Register = () => {
     name: "",
     email: "",
     phone: "",
-    department: "",
+    isacaId: "",
+    participationCategory: "",
+    organisation: "",
+    designation: "",
     backupCode: "",
     notes: "",
   });
@@ -44,14 +54,18 @@ const Register = () => {
   const [emailProgress, setEmailProgress] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Initialize EmailJS on component mount
+  // Initialize EmailJS and storage on component mount
   useEffect(() => {
-    initEmailJS();
-    const emailConfig = validateEmailConfig();
-    setIsEmailConfigured(emailConfig.isConfigured);
-    if (!emailConfig.isConfigured) {
-      console.warn(emailConfig.message);
-    }
+    const initializeComponent = async () => {
+      await waitForStorageInitialization();
+      initEmailJS();
+      const emailConfig = validateEmailConfig();
+      setIsEmailConfigured(emailConfig.isConfigured);
+      if (!emailConfig.isConfigured) {
+        console.warn(emailConfig.message);
+      }
+    };
+    initializeComponent();
   }, []);
 
   const handleInputChange = (e) => {
@@ -105,9 +119,7 @@ const Register = () => {
 
     try {
       // Check if user already exists
-      const existingUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]"
-      );
+      const existingUsers = await getRegisteredUsers();
       const userExists = existingUsers.some(
         (user) => user.email === formData.email || user.phone === formData.phone
       );
@@ -152,9 +164,9 @@ const Register = () => {
         status: "active",
       };
 
-      // Save to localStorage
+      // Save to cloud storage
       const updatedUsers = [...existingUsers, newUser];
-      localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
+      await setRegisteredUsers(updatedUsers);
 
       // Store the generated user for QR display
       setLastGeneratedUser(newUser);
@@ -188,7 +200,7 @@ const Register = () => {
               message: `Email sending failed: ${emailResult.message}`,
             });
           }
-        } catch (emailError) {
+        } catch {
           setEmailStatus({
             type: "error",
             message: "Failed to send welcome email",
@@ -207,7 +219,10 @@ const Register = () => {
         name: "",
         email: "",
         phone: "",
-        department: "",
+        isacaId: "",
+        participationCategory: "",
+        organisation: "",
+        designation: "",
         backupCode: "",
         notes: "",
       });
@@ -268,21 +283,79 @@ const Register = () => {
 
   const parseCSV = (csvContent) => {
     const lines = csvContent.split("\n").filter((line) => line.trim());
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+    if (lines.length < 2) return [];
+
+    const headers = lines[0]
+      .split(",")
+      .map((h) => h.trim().toLowerCase().replace(/"/g, ""));
 
     return lines
       .slice(1)
       .map((line) => {
-        const values = line.split(",").map((v) => v.trim().replace(/"/g, ""));
+        // Handle CSV with potential commas in quoted fields
+        const values = [];
+        let currentValue = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === "," && !inQuotes) {
+            values.push(currentValue.trim());
+            currentValue = "";
+          } else {
+            currentValue += char;
+          }
+        }
+        values.push(currentValue.trim()); // Add the last value
+
         const user = {};
 
         headers.forEach((header, i) => {
-          if (header === "name") user.name = values[i] || "";
-          else if (header === "email") user.email = values[i] || "";
-          else if (header === "phone") user.phone = values[i] || "";
-          else if (header === "department") user.department = values[i] || "";
-          else if (header === "backupcode") user.backupCode = values[i] || "";
-          else if (header === "notes") user.notes = values[i] || "";
+          const value = (values[i] || "").trim().replace(/"/g, "");
+
+          // Map CSV headers to form fields (ignoring S/N column)
+          if (header === "name" || header.includes("name")) {
+            user.name = value;
+          } else if (header === "email" || header.includes("email")) {
+            user.email = value;
+          } else if (
+            header === "phone number" ||
+            header === "phone" ||
+            header.includes("phone")
+          ) {
+            user.phone = value;
+          } else if (
+            header === "isaca id" ||
+            header === "isacaid" ||
+            header.includes("isaca")
+          ) {
+            user.isacaId = value;
+          } else if (
+            header === "participation category" ||
+            header.includes("participation") ||
+            header.includes("category")
+          ) {
+            user.participationCategory = value;
+          } else if (
+            header === "organisation" ||
+            header === "organization" ||
+            header.includes("organisation")
+          ) {
+            user.organisation = value;
+          } else if (
+            header === "designation" ||
+            header.includes("designation")
+          ) {
+            user.designation = value;
+          } else if (header === "backup code" || header === "backupcode") {
+            user.backupCode = value;
+          } else if (header === "notes" || header.includes("notes")) {
+            user.notes = value;
+          }
+          // Skip S/N column and any other unrecognized columns
         });
 
         return user;
@@ -302,9 +375,7 @@ const Register = () => {
     setIsSubmitting(true);
 
     try {
-      const existingUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]"
-      );
+      const existingUsers = await getRegisteredUsers();
       const newUsers = [];
       const skippedUsers = [];
 
@@ -364,9 +435,9 @@ const Register = () => {
         });
       }
 
-      // Save to localStorage
+      // Save to cloud storage
       const updatedUsers = [...existingUsers, ...newUsers];
-      localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
+      await setRegisteredUsers(updatedUsers);
 
       setSubmitMessage({
         type: "success",
@@ -399,7 +470,7 @@ const Register = () => {
 
           // Clear progress after a delay
           setTimeout(() => setEmailProgress(null), 3000);
-        } catch (emailError) {
+        } catch {
           setEmailStatus({
             type: "error",
             message: "Failed to send bulk welcome emails",
@@ -431,7 +502,7 @@ const Register = () => {
 
     if (format === "csv") {
       content =
-        "name,email,phone,department,backupcode,notes\nJohn Doe,john@example.com,+1234567890,IT,BAK123,Sample user";
+        "S/N,Name,Phone Number,Email,ISACA ID,Participation Category,Organisation,Designation\n1,John Doe,08036184466,john@example.com,571458,Physical,Nigerian Communications Commission,Information Security Manager";
       filename = "bulk_registration_template.csv";
       mimeType = "text/csv";
     } else {
@@ -440,10 +511,13 @@ const Register = () => {
           {
             name: "John Doe",
             email: "john@example.com",
-            phone: "+1234567890",
-            department: "IT",
-            backupCode: "BAK123",
-            notes: "Sample user",
+            phone: "08036184466",
+            isacaId: "571458",
+            participationCategory: "Physical",
+            organisation: "Nigerian Communications Commission",
+            designation: "Information Security Manager",
+            backupCode: "",
+            notes: "",
           },
         ],
         null,
@@ -621,17 +695,69 @@ const Register = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="department" className="form-label">
-                    Department
+                  <label htmlFor="isacaId" className="form-label">
+                    <FaIdCard />
+                    ISACA ID
                   </label>
                   <input
                     type="text"
-                    id="department"
-                    name="department"
-                    value={formData.department}
+                    id="isacaId"
+                    name="isacaId"
+                    value={formData.isacaId}
                     onChange={handleInputChange}
                     className="form-input"
-                    placeholder="Enter department (optional)"
+                    placeholder="Enter ISACA ID"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="participationCategory" className="form-label">
+                    <FaUsers />
+                    Participation Category
+                  </label>
+                  <select
+                    id="participationCategory"
+                    name="participationCategory"
+                    value={formData.participationCategory}
+                    onChange={handleInputChange}
+                    className="form-input"
+                  >
+                    <option value="">Select category</option>
+                    <option value="Physical">Physical</option>
+                    <option value="Virtual">Virtual</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="organisation" className="form-label">
+                    <FaBuilding />
+                    Organisation
+                  </label>
+                  <input
+                    type="text"
+                    id="organisation"
+                    name="organisation"
+                    value={formData.organisation}
+                    onChange={handleInputChange}
+                    className="form-input"
+                    placeholder="Enter organisation"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="designation" className="form-label">
+                    <FaUserTie />
+                    Designation
+                  </label>
+                  <input
+                    type="text"
+                    id="designation"
+                    name="designation"
+                    value={formData.designation}
+                    onChange={handleInputChange}
+                    className="form-input"
+                    placeholder="Enter job title/designation"
                   />
                 </div>
 
@@ -694,6 +820,14 @@ const Register = () => {
                       <strong>Email:</strong> {lastGeneratedUser.email}
                     </p>
                     <p>
+                      <strong>ISACA ID:</strong>{" "}
+                      {lastGeneratedUser.isacaId || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Organisation:</strong>{" "}
+                      {lastGeneratedUser.organisation || "N/A"}
+                    </p>
+                    <p>
                       <strong>Backup Code:</strong>{" "}
                       {lastGeneratedUser.backupCode}
                     </p>
@@ -722,6 +856,10 @@ const Register = () => {
           <div className="bulk-content">
             <div className="bulk-section">
               <h3>Download Templates</h3>
+              <p className="template-help">
+                Download a template file that matches the required format with
+                all necessary fields.
+              </p>
               <div className="template-buttons">
                 <button
                   className="btn btn-secondary"
@@ -737,6 +875,19 @@ const Register = () => {
                   <FaFileExcel />
                   Download JSON Template
                 </button>
+              </div>
+              <div className="expected-format">
+                <h4>Expected CSV Format:</h4>
+                <code>
+                  S/N,Name,Phone Number,Email,ISACA ID,Participation
+                  Category,Organisation,Designation
+                </code>
+                <p>
+                  <small>
+                    The S/N column will be ignored during import. All other
+                    fields will be mapped automatically.
+                  </small>
+                </p>
               </div>
             </div>
 
@@ -783,7 +934,10 @@ const Register = () => {
                           <th>Name</th>
                           <th>Email</th>
                           <th>Phone</th>
-                          <th>Department</th>
+                          <th>ISACA ID</th>
+                          <th>Category</th>
+                          <th>Organisation</th>
+                          <th>Designation</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -792,7 +946,10 @@ const Register = () => {
                             <td>{user.name}</td>
                             <td>{user.email}</td>
                             <td>{user.phone}</td>
-                            <td>{user.department || "-"}</td>
+                            <td>{user.isacaId || "-"}</td>
+                            <td>{user.participationCategory || "-"}</td>
+                            <td>{user.organisation || "-"}</td>
+                            <td>{user.designation || "-"}</td>
                           </tr>
                         ))}
                       </tbody>

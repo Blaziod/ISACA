@@ -10,6 +10,7 @@ import {
   setScanOutList,
   getStorageStatus,
   syncData,
+  waitForStorageInitialization,
 } from "./cloudStorage";
 
 export const storage = {
@@ -99,6 +100,9 @@ export const storage = {
 
   // Sync data
   sync: () => syncData(),
+
+  // Initialize storage (wait for API check)
+  initialize: () => waitForStorageInitialization(),
 };
 
 // Data key constants

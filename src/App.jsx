@@ -20,8 +20,13 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        // Wait for storage service to initialize (API check)
+        await storage.initialize();
+
         // Sync data when app starts
         await storage.sync();
+
+        // Get the updated storage status
         const status = storage.getStatus();
         setStorageStatus(status);
         console.log("App initialized with storage status:", status);

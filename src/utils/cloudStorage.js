@@ -12,7 +12,8 @@ class StorageService {
   constructor() {
     this.isOnline = navigator.onLine;
     this.apiAvailable = false;
-    this.checkApiAvailability();
+    this.initialized = false;
+    this.initPromise = this.checkApiAvailability();
 
     // Listen for online/offline events
     window.addEventListener("online", () => {
@@ -49,6 +50,12 @@ class StorageService {
         error.message
       );
       this.apiAvailable = false;
+    } finally {
+      this.initialized = true;
+      console.log(
+        "🔧 Storage service initialized. API available:",
+        this.apiAvailable
+      );
     }
   }
 
@@ -165,7 +172,14 @@ class StorageService {
       isOnline: this.isOnline,
       apiAvailable: this.apiAvailable,
       storageMode: this.apiAvailable && this.isOnline ? "cloud" : "local",
+      initialized: this.initialized,
     };
+  }
+
+  // Wait for initialization to complete
+  async waitForInitialization() {
+    if (this.initialized) return;
+    await this.initPromise;
   }
 }
 
@@ -191,5 +205,7 @@ export const setScanOutList = (list) =>
 export const syncData = () => storageService.syncRemoteToLocal();
 export const getStorageStatus = () => storageService.getStatus();
 export const clearAllData = () => storageService.clearAllData();
+export const waitForStorageInitialization = () =>
+  storageService.waitForInitialization();
 
 export default storageService;
