@@ -1,0 +1,246 @@
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  FaQrcode,
+  FaKeyboard,
+  FaUserPlus,
+  FaUsers,
+  FaSignInAlt,
+  FaSignOutAlt,
+  FaChartBar,
+  FaClock,
+} from "react-icons/fa";
+import "./Dashboard.css";
+
+const Dashboard = () => {
+  const [stats, setStats] = useState({
+    totalRegistered: 0,
+    checkedIn: 0,
+    checkedOut: 0,
+    lastActivity: null,
+  });
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    // Load stats from localStorage
+    const registered = JSON.parse(
+      localStorage.getItem("registeredUsers") || "[]"
+    );
+    const scanInList = JSON.parse(localStorage.getItem("scanInList") || "[]");
+    const scanOutList = JSON.parse(localStorage.getItem("scanOutList") || "[]");
+
+    setStats({
+      totalRegistered: registered.length,
+      checkedIn: scanInList.length,
+      checkedOut: scanOutList.length,
+      lastActivity:
+        scanInList.length > 0 || scanOutList.length > 0
+          ? new Date(
+              Math.max(
+                scanInList.length > 0
+                  ? new Date(scanInList[scanInList.length - 1].timestamp)
+                  : 0,
+                scanOutList.length > 0
+                  ? new Date(scanOutList[scanOutList.length - 1].timestamp)
+                  : 0
+              )
+            )
+          : null,
+    });
+
+    // Update time every second
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const quickActions = [
+    {
+      title: "QR Scanner",
+      description: "Scan QR codes for quick check-in/out",
+      icon: FaQrcode,
+      path: "/scan",
+      color: "#3498db",
+      bgColor: "#e3f2fd",
+    },
+    {
+      title: "Manual Code",
+      description: "Enter backup codes manually",
+      icon: FaKeyboard,
+      path: "/code",
+      color: "#9c27b0",
+      bgColor: "#f3e5f5",
+    },
+    {
+      title: "Register User",
+      description: "Add new users to the system",
+      icon: FaUserPlus,
+      path: "/register",
+      color: "#4caf50",
+      bgColor: "#e8f5e8",
+    },
+    {
+      title: "User Lists",
+      description: "View all registered users",
+      icon: FaUsers,
+      path: "/registered-list",
+      color: "#ff9800",
+      bgColor: "#fff3e0",
+    },
+  ];
+
+  const recentActivities = [
+    {
+      title: "Scan In List",
+      description: "View who has checked in today",
+      icon: FaSignInAlt,
+      path: "/scan-in-list",
+      count: stats.checkedIn,
+      color: "#4caf50",
+    },
+    {
+      title: "Scan Out List",
+      description: "View who has checked out",
+      icon: FaSignOutAlt,
+      path: "/scan-out-list",
+      count: stats.checkedOut,
+      color: "#f44336",
+    },
+  ];
+
+  return (
+    <div className="dashboard fade-in">
+      <div className="dashboard-header">
+        <div className="welcome-section">
+          <h1 className="dashboard-title">Welcome to Access IDCODE</h1>
+          <p className="dashboard-subtitle">
+            Manage access control and attendance tracking efficiently
+          </p>
+        </div>
+        <div className="time-section">
+          <FaClock className="clock-icon" />
+          <div className="time-display">
+            <div className="current-time">
+              {currentTime.toLocaleTimeString()}
+            </div>
+            <div className="current-date">
+              {currentTime.toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ color: "#3498db" }}>
+            <FaUsers />
+          </div>
+          <div className="stat-content">
+            <div className="stat-number">{stats.totalRegistered}</div>
+            <div className="stat-label">Total Registered</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ color: "#4caf50" }}>
+            <FaSignInAlt />
+          </div>
+          <div className="stat-content">
+            <div className="stat-number">{stats.checkedIn}</div>
+            <div className="stat-label">Checked In</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ color: "#f44336" }}>
+            <FaSignOutAlt />
+          </div>
+          <div className="stat-content">
+            <div className="stat-number">{stats.checkedOut}</div>
+            <div className="stat-label">Checked Out</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ color: "#ff9800" }}>
+            <FaChartBar />
+          </div>
+          <div className="stat-content">
+            <div className="stat-number">
+              {stats.lastActivity
+                ? stats.lastActivity.toLocaleTimeString()
+                : "--:--"}
+            </div>
+            <div className="stat-label">Last Activity</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-content">
+        <div className="section">
+          <h2 className="section-title">Quick Actions</h2>
+          <div className="actions-grid">
+            {quickActions.map((action, index) => {
+              const IconComponent = action.icon;
+              return (
+                <Link
+                  key={index}
+                  to={action.path}
+                  className="action-card"
+                  style={{
+                    backgroundColor: action.bgColor,
+                    borderLeft: `4px solid ${action.color}`,
+                  }}
+                >
+                  <div className="action-icon" style={{ color: action.color }}>
+                    <IconComponent />
+                  </div>
+                  <div className="action-content">
+                    <h3 className="action-title">{action.title}</h3>
+                    <p className="action-description">{action.description}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="section">
+          <h2 className="section-title">Recent Activity</h2>
+          <div className="activities-grid">
+            {recentActivities.map((activity, index) => {
+              const IconComponent = activity.icon;
+              return (
+                <Link key={index} to={activity.path} className="activity-card">
+                  <div
+                    className="activity-icon"
+                    style={{ color: activity.color }}
+                  >
+                    <IconComponent />
+                  </div>
+                  <div className="activity-content">
+                    <h3 className="activity-title">{activity.title}</h3>
+                    <p className="activity-description">
+                      {activity.description}
+                    </p>
+                    <div
+                      className="activity-count"
+                      style={{ color: activity.color }}
+                    >
+                      {activity.count} entries
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
