@@ -20,9 +20,8 @@ const QRScanner = () => {
   const html5QrcodeScannerRef = useRef(null);
 
   useEffect(() => {
-    // Load scan history from localStorage
-    const history = JSON.parse(localStorage.getItem("scanHistory") || "[]");
-    setScanHistory(history);
+    // Initialize scan history as empty array (no localStorage)
+    setScanHistory([]);
 
     return () => {
       // Cleanup scanner when component unmounts
@@ -256,7 +255,6 @@ const QRScanner = () => {
 
       // Check current status
       const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST, []);
-      const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST, []);
 
       const isCheckedIn = scanInList.some((entry) => entry.userId === user.id);
       const timestamp = new Date().toISOString();
@@ -291,11 +289,9 @@ const QRScanner = () => {
           type: "scan-out",
         };
 
+        // Use individual Firebase requests for each operation
         await storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList);
-        await storage.set(STORAGE_KEYS.SCAN_OUT_LIST, [
-          ...scanOutList,
-          scanOutEntry,
-        ]);
+        await storage.addScanOut(scanOutEntry);
 
         setScanResult({
           success: true,
@@ -314,10 +310,8 @@ const QRScanner = () => {
           type: "scan-in",
         };
 
-        await storage.set(STORAGE_KEYS.SCAN_IN_LIST, [
-          ...scanInList,
-          scanInEntry,
-        ]);
+        // Use individual Firebase request for scan-in
+        await storage.addScanIn(scanInEntry);
 
         setScanResult({
           success: true,
@@ -338,7 +332,6 @@ const QRScanner = () => {
 
       const updatedHistory = [historyEntry, ...scanHistory.slice(0, 9)]; // Keep last 10
       setScanHistory(updatedHistory);
-      localStorage.setItem("scanHistory", JSON.stringify(updatedHistory));
 
       // Start auto-clear countdown after successful scan
       setAutoClearCountdown(5);

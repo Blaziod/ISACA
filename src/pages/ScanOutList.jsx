@@ -280,7 +280,9 @@ const ScanOutList = () => {
     // Title
     doc.setFontSize(20);
     doc.setFont(undefined, "bold");
-    doc.text("Check-Out Report", pageWidth / 2, 20, { align: "center" });
+    doc.text("Check-Out Report (Consolidated)", pageWidth / 2, 20, {
+      align: "center",
+    });
 
     // Date and stats
     doc.setFontSize(12);
@@ -288,20 +290,19 @@ const ScanOutList = () => {
     doc.text(`Generated: ${formatDateTime(new Date())}`, pageWidth / 2, 30, {
       align: "center",
     });
-    doc.text(`Total Entries: ${filteredList.length}`, pageWidth / 2, 38, {
+    doc.text(`Total Users: ${consolidatedUsers.length}`, pageWidth / 2, 38, {
       align: "center",
     });
     doc.text(`Filter: ${dateFilter}`, pageWidth / 2, 46, { align: "center" });
 
-    // Table
-    const tableData = filteredList.map((entry) => [
-      entry.userId,
-      entry.name,
-      entry.email,
-      entry.checkInTime ? formatDateTime(entry.checkInTime) : "--",
-      formatDateTime(entry.timestamp),
-      formatDuration(entry.duration),
-      entry.entryMethod || "QR Code",
+    // Table with consolidated data
+    const tableData = consolidatedUsers.map((user) => [
+      user.userId,
+      user.name,
+      user.email,
+      user.sessionCount.toString(),
+      formatDuration(user.totalDuration),
+      formatDateTime(user.lastCheckOut),
     ]);
 
     doc.autoTable({
@@ -310,42 +311,36 @@ const ScanOutList = () => {
           "User ID",
           "Name",
           "Email",
-          "Check-In",
-          "Check-Out",
-          "Duration",
-          "Method",
+          "Sessions",
+          "Total Duration",
+          "Last Check-Out",
         ],
       ],
       body: tableData,
       startY: 55,
-      styles: { fontSize: 7 },
+      styles: { fontSize: 8 },
       headStyles: { fillColor: [244, 67, 54] },
+      columnStyles: {
+        3: { halign: "center" }, // Sessions column centered
+        4: { halign: "center" }, // Duration column centered
+      },
     });
 
-    doc.save("check-out-report.pdf");
+    doc.save("check-out-report-consolidated.pdf");
   };
 
   const exportToCSVFile = () => {
-    const headers = [
-      "userId",
-      "name",
-      "email",
-      "checkInTime",
-      "checkOutTime",
-      "duration",
-      "entryMethod",
-    ];
-    const data = filteredList.map((entry) => ({
-      userId: entry.userId,
-      name: entry.name,
-      email: entry.email,
-      checkInTime: entry.checkInTime ? formatDateTime(entry.checkInTime) : "--",
-      checkOutTime: formatDateTime(entry.timestamp),
-      duration: formatDuration(entry.duration),
-      entryMethod: entry.entryMethod || "QR Code",
+    const data = consolidatedUsers.map((user) => ({
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      sessionCount: user.sessionCount,
+      totalDuration: formatDuration(user.totalDuration),
+      lastCheckOut: formatDateTime(user.lastCheckOut),
+      firstCheckIn: formatDateTime(user.firstCheckIn),
     }));
 
-    exportToCSV(data, headers, "check-out-report.csv");
+    exportToCSV(data, "check-out-report-consolidated.csv");
   };
 
   const handlePrint = () => {
@@ -355,7 +350,7 @@ const ScanOutList = () => {
     const printContent = `
       <html>
         <head>
-          <title>Check-Out Report</title>
+          <title>Check-Out Report (Consolidated)</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
             .header { text-align: center; margin-bottom: 30px; }
@@ -369,16 +364,32 @@ const ScanOutList = () => {
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f44336; color: white; }
             tr:nth-child(even) { background-color: #f2f2f2; }
-            .method-qr { color: #2196f3; font-weight: bold; }
-            .method-manual { color: #ff9800; font-weight: bold; }
+            .count-badge { 
+              background-color: #2196f3; 
+              color: white; 
+              padding: 2px 8px; 
+              border-radius: 12px; 
+              font-size: 12px; 
+              font-weight: bold; 
+            }
+            .duration-badge { 
+              padding: 4px 8px; 
+              border-radius: 4px; 
+              font-weight: bold; 
+              color: white;
+            }
+            .duration-badge.short { background-color: #4caf50; }
+            .duration-badge.medium { background-color: #ff9800; }
+            .duration-badge.long { background-color: #f44336; }
+            .center { text-align: center; }
           </style>
         </head>
         <body>
           <div class="header">
-            <div class="title">Check-Out Report</div>
+            <div class="title">Check-Out Report (Consolidated View)</div>
             <div class="info">Generated: ${formatDateTime(new Date())}</div>
             <div class="info">Filter: ${dateFilter}</div>
-            <div class="info">Total Entries: ${filteredList.length}</div>
+            <div class="info">Total Users: ${consolidatedUsers.length}</div>
           </div>
           
           <div class="stats">
@@ -408,28 +419,32 @@ const ScanOutList = () => {
                 <th>User ID</th>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Check-In</th>
-                <th>Check-Out</th>
-                <th>Duration</th>
-                <th>Method</th>
+                <th class="center">Sessions</th>
+                <th class="center">Total Duration</th>
+                <th>Last Check-Out</th>
               </tr>
             </thead>
             <tbody>
-              ${filteredList
+              ${consolidatedUsers
                 .map(
-                  (entry) => `
+                  (user) => `
                 <tr>
-                  <td>${entry.userId}</td>
-                  <td>${entry.name}</td>
-                  <td>${entry.email}</td>
-                  <td>${
-                    entry.checkInTime ? formatDateTime(entry.checkInTime) : "--"
-                  }</td>
-                  <td>${formatDateTime(entry.timestamp)}</td>
-                  <td>${formatDuration(entry.duration)}</td>
-                  <td class="method-${(entry.entryMethod || "qr")
-                    .toLowerCase()
-                    .replace(" ", "-")}">${entry.entryMethod || "QR Code"}</td>
+                  <td>${user.userId}</td>
+                  <td>${user.name}</td>
+                  <td>${user.email}</td>
+                  <td class="center">
+                    <span class="count-badge">${user.sessionCount}</span>
+                  </td>
+                  <td class="center">
+                    <span class="duration-badge ${
+                      user.totalDuration > 480
+                        ? "long"
+                        : user.totalDuration > 240
+                        ? "medium"
+                        : "short"
+                    }">${formatDuration(user.totalDuration)}</span>
+                  </td>
+                  <td>${formatDateTime(user.lastCheckOut)}</td>
                 </tr>
               `
                 )

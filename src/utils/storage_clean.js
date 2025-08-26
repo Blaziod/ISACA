@@ -12,8 +12,6 @@ import {
   waitForStorageInitialization,
   exportAllData,
   importAllData,
-  clearAllData,
-  verifyDataIntegrity,
 } from "./firebaseStorage";
 
 // Data key constants
@@ -88,9 +86,6 @@ export const storage = {
   // Export/Import
   exportAll: async () => await exportAllData(),
   importAll: async (data) => await importAllData(data),
-
-  // Clear all data from Firebase
-  clearAllData: async () => await clearAllData(),
 };
 
 // Generate unique ID
@@ -111,58 +106,5 @@ export const formatDateTime = (date) => {
   return new Date(date).toLocaleString();
 };
 
-// Format time only
-export const formatTime = (date) => {
-  return new Date(date).toLocaleTimeString();
-};
-
-// Export to CSV utility function
-export const exportToCSV = (data, filename = "export.csv") => {
-  if (!data || data.length === 0) {
-    console.warn("No data to export");
-    return;
-  }
-
-  // Get headers from first object
-  const headers = Object.keys(data[0]);
-
-  // Create CSV content
-  const csvContent = [
-    headers.join(","), // Header row
-    ...data.map((row) =>
-      headers
-        .map((header) => {
-          const value = row[header] || "";
-          // Escape quotes and wrap in quotes if contains comma
-          return typeof value === "string" &&
-            (value.includes(",") || value.includes('"'))
-            ? `"${value.replace(/"/g, '""')}"`
-            : value;
-        })
-        .join(",")
-    ),
-  ].join("\n");
-
-  // Create and download file
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
-  link.style.visibility = "hidden";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
 // Export default
 export default storage;
-
-// Export additional functions for direct use
-export { getStorageStatus, verifyDataIntegrity };
-
-// Add dummy syncData for backward compatibility (Firebase is always synced)
-export const syncData = async () => {
-  console.log("Firebase storage is always synced - no manual sync needed");
-  return Promise.resolve();
-};

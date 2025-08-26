@@ -20,9 +20,7 @@ const ManualCode = () => {
   const [parsedJson, setParsedJson] = useState(null);
   const [autoClearCountdown, setAutoClearCountdown] = useState(0);
   const [lastProcessedCode, setLastProcessedCode] = useState(""); // Track last processed code
-  const [recentCodes, setRecentCodes] = useState(() => {
-    return JSON.parse(localStorage.getItem("recentCodes") || "[]");
-  });
+  const [recentCodes, setRecentCodes] = useState([]);
 
   const handleCodeChange = (e) => {
     const value = e.target.value;
@@ -157,7 +155,6 @@ const ManualCode = () => {
 
         const updatedRecentCodes = [newRecentCode, ...recentCodes.slice(0, 9)];
         setRecentCodes(updatedRecentCodes);
-        localStorage.setItem("recentCodes", JSON.stringify(updatedRecentCodes));
 
         // Clear the code input after successful auto-search (with countdown)
         setAutoClearCountdown(2);
@@ -275,7 +272,6 @@ const ManualCode = () => {
 
         const updatedRecentCodes = [newRecentCode, ...recentCodes.slice(0, 9)]; // Keep last 10
         setRecentCodes(updatedRecentCodes);
-        localStorage.setItem("recentCodes", JSON.stringify(updatedRecentCodes));
 
         // Clear the code input after successful processing
         setCode("");
@@ -367,7 +363,6 @@ const ManualCode = () => {
 
     // Check current status
     const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST, []);
-    const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST, []);
 
     const isCheckedIn = scanInList.some((entry) => entry.userId === user.id);
     const timestamp = new Date().toISOString();
@@ -399,11 +394,9 @@ const ManualCode = () => {
         entryMethod: "manual",
       };
 
+      // Use individual Firebase requests for each operation
       await storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList);
-      await storage.set(STORAGE_KEYS.SCAN_OUT_LIST, [
-        ...scanOutList,
-        scanOutEntry,
-      ]);
+      await storage.addScanOut(scanOutEntry);
 
       const fuzzyMatchText =
         searchCriteria === "email" && searchValue !== user.email
@@ -427,10 +420,8 @@ const ManualCode = () => {
         entryMethod: "manual",
       };
 
-      await storage.set(STORAGE_KEYS.SCAN_IN_LIST, [
-        ...scanInList,
-        scanInEntry,
-      ]);
+      // Use individual Firebase request for scan-in
+      await storage.addScanIn(scanInEntry);
 
       const fuzzyMatchText =
         searchCriteria === "email" && searchValue !== user.email

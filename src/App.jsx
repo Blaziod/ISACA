@@ -21,11 +21,11 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Wait for storage service to initialize (API check)
+        // Wait for storage service to initialize (Firebase connection check)
         await storage.initialize();
 
-        // Sync data when app starts
-        await storage.sync();
+        // Firebase-only storage doesn't need manual sync
+        console.log("Firebase storage initialized successfully");
 
         // Get the updated storage status
         const status = storage.getStatus();
@@ -34,9 +34,9 @@ function App() {
       } catch (error) {
         console.error("App initialization error:", error);
         setStorageStatus({
-          storageMode: "local",
-          isOnline: navigator.onLine,
-          apiAvailable: false,
+          storageMode: "firebase",
+          firebaseAvailable: false,
+          initialized: false,
         });
       } finally {
         setIsInitialized(true);

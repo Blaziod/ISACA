@@ -12,20 +12,9 @@ export const STORAGE_KEYS = {
 
 class FirebaseStorageService {
   constructor() {
-    this.isOnline = navigator.onLine;
     this.firebaseAvailable = true;
     this.initialized = false;
-    this.localCache = new Map();
-
-    // Listen for online/offline events
-    window.addEventListener("online", () => {
-      this.isOnline = true;
-      this.syncLocalToFirebase();
-    });
-
-    window.addEventListener("offline", () => {
-      this.isOnline = false;
-    });
+    this.pendingOperations = new Map(); // Track pending operations
 
     this.initializeService();
   }
@@ -39,198 +28,213 @@ class FirebaseStorageService {
 
       this.firebaseAvailable = true;
       console.log("✅ Firebase connection successful");
-
-      // Load existing data to local cache
-      await this.loadCacheFromFirebase();
     } catch (error) {
       console.error("❌ Firebase initialization failed:", error);
       this.firebaseAvailable = false;
-
-      // Load from localStorage as fallback
-      this.loadCacheFromLocalStorage();
+      throw new Error(
+        "Firebase is required for operation. Please check your connection and try again."
+      );
     } finally {
       this.initialized = true;
       console.log(
-        `🔥 Firebase Storage Service initialized. firebaseAvailable: ${this.firebaseAvailable}, isOnline: ${this.isOnline}`
+        `🔥 Firebase Storage Service initialized. Firebase available: ${this.firebaseAvailable}`
       );
     }
   }
 
-  async loadCacheFromFirebase() {
-    if (!this.firebaseAvailable || !this.isOnline) return;
+  // Get data directly from Firebase
+  async getData(key) {
+    console.log(`🔍 getData called for ${key}`);
+
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot retrieve data.");
+    }
 
     try {
-      for (const key of Object.values(STORAGE_KEYS)) {
-        const dataRef = ref(database, key);
-        const snapshot = await get(dataRef);
-        const data = snapshot.exists() ? snapshot.val() : [];
+      console.log(`🔥 Fetching ${key} from Firebase...`);
+      const dataRef = ref(database, key);
+      const snapshot = await get(dataRef);
 
-        // Convert Firebase object to array if needed
-        const arrayData = Array.isArray(data)
-          ? data
-          : Object.values(data || {});
-        this.localCache.set(key, arrayData);
+      if (snapshot.exists()) {
+        const firebaseData = snapshot.val();
+        let data = [];
 
-        // Also store in localStorage as backup
-        localStorage.setItem(key, JSON.stringify(arrayData));
+        // Handle new format with metadata
+        if (firebaseData && firebaseData.items) {
+          data = Array.isArray(firebaseData.items)
+            ? firebaseData.items
+            : Object.values(firebaseData.items || {});
+          console.log(
+            `✅ Firebase data loaded for ${key} (${data.length} items, version: ${firebaseData.version})`
+          );
+        }
+        // Handle old format (direct array/object)
+        else {
+          data = Array.isArray(firebaseData)
+            ? firebaseData
+            : Object.values(firebaseData || {});
+          console.log(
+            `✅ Firebase data loaded for ${key} (${data.length} items, legacy format)`
+          );
+        }
+
+        return [...data];
+      } else {
+        console.log(`📭 No Firebase data found for ${key}`);
+        return [];
       }
     } catch (error) {
-      console.error("❌ Failed to load from Firebase:", error);
-      this.loadCacheFromLocalStorage();
+      console.error(`❌ Firebase get failed for ${key}:`, error);
+      throw new Error(`Failed to fetch ${key} from Firebase: ${error.message}`);
     }
   }
 
-  loadCacheFromLocalStorage() {
-    for (const key of Object.values(STORAGE_KEYS)) {
-      const localData = localStorage.getItem(key);
-      const data = localData ? JSON.parse(localData) : [];
-      this.localCache.set(key, data);
-    }
-  }
-
-  // Get data with fallback chain: cache -> Firebase -> localStorage
-  async getData(key) {
-    // Return from cache if available
-    if (this.localCache.has(key)) {
-      return this.localCache.get(key);
-    }
-
-    // Try Firebase if online and available
-    if (this.firebaseAvailable && this.isOnline) {
-      try {
-        const dataRef = ref(database, key);
-        const snapshot = await get(dataRef);
-        const data = snapshot.exists() ? snapshot.val() : [];
-
-        // Convert Firebase object to array if needed
-        const arrayData = Array.isArray(data)
-          ? data
-          : Object.values(data || {});
-
-        // Cache the result
-        this.localCache.set(key, arrayData);
-
-        // Also store locally as backup
-        localStorage.setItem(key, JSON.stringify(arrayData));
-
-        return arrayData;
-      } catch (error) {
-        console.warn(
-          "⚠️ Firebase get failed, using localStorage:",
-          error.message
-        );
-      }
-    }
-
-    // Fallback to localStorage
-    const localData = localStorage.getItem(key);
-    const data = localData ? JSON.parse(localData) : [];
-    this.localCache.set(key, data);
-    return data;
-  }
-
-  // Set data with Firebase sync
+  // Set data directly to Firebase
   async setData(key, data) {
-    console.log(`🔥 setData called for ${key}:`, data);
+    console.log(
+      `🔥 setData called for ${key}:`,
+      Array.isArray(data) ? `${data.length} items` : data
+    );
 
-    // Always update cache first
-    this.localCache.set(key, data);
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot save data.");
+    }
 
-    // Always store locally as backup
-    localStorage.setItem(key, JSON.stringify(data));
+    // Prevent concurrent operations on the same key
+    if (this.pendingOperations.has(key)) {
+      console.log(`⏳ Operation already pending for ${key}, waiting...`);
+      await this.pendingOperations.get(key);
+    }
 
-    // Try to sync to Firebase if available
-    if (this.firebaseAvailable && this.isOnline) {
-      try {
-        console.log(`🔥 Attempting Firebase write for ${key}...`);
-        const dataRef = ref(database, key);
-        await set(dataRef, data);
-        console.log(`✅ Firebase write successful for ${key}`);
-      } catch (error) {
-        console.warn(
-          `⚠️ Firebase set failed for ${key}, data saved locally:`,
-          error.message
-        );
-        // Data is still saved locally, so this is not a critical failure
-      }
-    } else {
-      console.log(
-        `⚠️ Firebase not available or offline for ${key}. firebaseAvailable: ${this.firebaseAvailable}, isOnline: ${this.isOnline}`
-      );
+    // Create operation promise
+    const operationPromise = this._performSetOperation(key, data);
+    this.pendingOperations.set(key, operationPromise);
+
+    try {
+      await operationPromise;
+    } finally {
+      this.pendingOperations.delete(key);
     }
 
     return data;
   }
 
-  // Add a single item to a list
+  async _performSetOperation(key, data) {
+    // Validate data
+    if (!Array.isArray(data)) {
+      console.warn(`⚠️ Data for ${key} is not an array, converting...`);
+      data = data ? [data] : [];
+    }
+
+    try {
+      console.log(`🔥 Writing to Firebase for ${key}...`);
+      const dataRef = ref(database, key);
+
+      // Add metadata to Firebase data
+      const firebaseData = {
+        items: data,
+        lastUpdated: Date.now(),
+        version: this.generateVersion(),
+      };
+
+      await set(dataRef, firebaseData);
+      console.log(
+        `✅ Firebase write successful for ${key} (${data.length} items)`
+      );
+    } catch (error) {
+      console.error(`❌ Firebase write failed for ${key}:`, error);
+      throw new Error(`Failed to save ${key} to Firebase: ${error.message}`);
+    }
+  }
+
+  generateVersion() {
+    return `v${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Add a single item to a Firebase list
   async addItem(key, item) {
+    console.log(`🔥 Adding single item to ${key}:`, item);
+
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot add item.");
+    }
+
+    // Get current data and add new item
     const currentData = await this.getData(key);
     const newData = [...currentData, item];
-    return await this.setData(key, newData);
+
+    // Save back to Firebase
+    await this.setData(key, newData);
+
+    console.log(`✅ Item added to ${key} (now ${newData.length} items)`);
+    return newData;
   }
 
   // Remove item from list by ID
   async removeItem(key, itemId) {
+    console.log(`🔥 Removing item ${itemId} from ${key}`);
+
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot remove item.");
+    }
+
     const currentData = await this.getData(key);
     const newData = currentData.filter((item) => item.id !== itemId);
-    return await this.setData(key, newData);
+
+    await this.setData(key, newData);
+
+    console.log(`✅ Item removed from ${key} (now ${newData.length} items)`);
+    return newData;
   }
 
   // Update item in list by ID
   async updateItem(key, itemId, updatedItem) {
+    console.log(`🔥 Updating item ${itemId} in ${key}:`, updatedItem);
+
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot update item.");
+    }
+
     const currentData = await this.getData(key);
     const newData = currentData.map((item) =>
       item.id === itemId ? { ...item, ...updatedItem } : item
     );
-    return await this.setData(key, newData);
+
+    await this.setData(key, newData);
+
+    console.log(`✅ Item updated in ${key}`);
+    return newData;
   }
 
-  // Sync local storage to Firebase when coming online
-  async syncLocalToFirebase() {
-    if (!this.firebaseAvailable || !this.isOnline) return;
+  // Clear all data from Firebase
+  async clearAllData() {
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot clear data.");
+    }
 
     try {
-      for (const [key, data] of this.localCache.entries()) {
+      for (const key of Object.values(STORAGE_KEYS)) {
         const dataRef = ref(database, key);
-        await set(dataRef, data);
+        await remove(dataRef);
+        console.log(`✅ Cleared ${key} from Firebase`);
       }
+      console.log("✅ All data cleared from Firebase");
     } catch (error) {
-      console.error("❌ Sync to Firebase failed:", error);
-    }
-  }
-
-  // Clear all data
-  async clearAllData() {
-    // Clear cache
-    this.localCache.clear();
-
-    // Clear localStorage
-    Object.values(STORAGE_KEYS).forEach((key) => {
-      localStorage.removeItem(key);
-    });
-
-    // Clear Firebase if available
-    if (this.firebaseAvailable && this.isOnline) {
-      try {
-        for (const key of Object.values(STORAGE_KEYS)) {
-          const dataRef = ref(database, key);
-          await remove(dataRef);
-        }
-      } catch (error) {
-        console.warn("⚠️ Firebase clear failed:", error.message);
-      }
+      console.error("❌ Firebase clear failed:", error);
+      throw new Error(`Failed to clear data from Firebase: ${error.message}`);
     }
   }
 
   // Get storage status
   getStatus() {
     return {
-      isOnline: this.isOnline,
       firebaseAvailable: this.firebaseAvailable,
-      storageMode:
-        this.firebaseAvailable && this.isOnline ? "firebase" : "local",
       initialized: this.initialized,
-      cacheSize: this.localCache.size,
+      pendingOperations: this.pendingOperations.size,
+      isOnline: this.firebaseAvailable && navigator.onLine, // Check both Firebase and network
+      cacheSize: 0, // No cache in Firebase-only mode
+      queueSize: 0, // No queue in Firebase-only mode
+      storageMode: this.firebaseAvailable ? "firebase" : "offline", // Add storage mode for navigation
     };
   }
 
@@ -239,10 +243,19 @@ class FirebaseStorageService {
     if (this.initialized) return;
 
     // Poll until initialized
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Firebase initialization timeout"));
+      }, 10000); // 10 second timeout
+
       const checkInitialized = () => {
         if (this.initialized) {
-          resolve();
+          clearTimeout(timeout);
+          if (this.firebaseAvailable) {
+            resolve();
+          } else {
+            reject(new Error("Firebase is not available"));
+          }
         } else {
           setTimeout(checkInitialized, 100);
         }
@@ -251,8 +264,65 @@ class FirebaseStorageService {
     });
   }
 
+  // Check data integrity and repair if needed
+  async verifyDataIntegrity() {
+    console.log("🔍 Verifying data integrity...");
+
+    if (!this.firebaseAvailable) {
+      throw new Error(
+        "Firebase is not available. Cannot verify data integrity."
+      );
+    }
+
+    for (const key of Object.values(STORAGE_KEYS)) {
+      try {
+        const data = await this.getData(key);
+
+        // Check if data is valid
+        if (!Array.isArray(data)) {
+          console.warn(`⚠️ Invalid data type for ${key}, converting to array`);
+          await this.setData(key, []);
+          continue;
+        }
+
+        // Check for duplicates (by id field)
+        const seen = new Set();
+        const duplicates = [];
+        const cleaned = data.filter((item) => {
+          if (!item || !item.id) {
+            duplicates.push(item);
+            return false;
+          }
+          if (seen.has(item.id)) {
+            duplicates.push(item);
+            return false;
+          }
+          seen.add(item.id);
+          return true;
+        });
+
+        if (duplicates.length > 0) {
+          console.warn(
+            `🧹 Cleaned ${duplicates.length} invalid/duplicate items from ${key}`
+          );
+          await this.setData(key, cleaned);
+        }
+
+        console.log(
+          `✅ ${key} integrity verified (${cleaned.length} valid items)`
+        );
+      } catch (error) {
+        console.error(`❌ Failed to verify ${key}:`, error);
+      }
+    }
+  }
+
   // Export data for backup
   async exportAllData() {
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot export data.");
+    }
+
     const backup = {};
     for (const key of Object.values(STORAGE_KEYS)) {
       backup[key] = await this.getData(key);
@@ -262,6 +332,10 @@ class FirebaseStorageService {
 
   // Import data from backup
   async importAllData(backupData) {
+    if (!this.firebaseAvailable) {
+      throw new Error("Firebase is not available. Cannot import data.");
+    }
+
     for (const [key, data] of Object.entries(backupData)) {
       if (Object.values(STORAGE_KEYS).includes(key)) {
         await this.setData(key, data);
@@ -295,10 +369,11 @@ export const addScanOutEntry = (entry) =>
   firebaseStorageService.addItem(STORAGE_KEYS.SCAN_OUT_LIST, entry);
 
 export const getStorageStatus = () => firebaseStorageService.getStatus();
+export const verifyDataIntegrity = () =>
+  firebaseStorageService.verifyDataIntegrity();
 export const clearAllData = () => firebaseStorageService.clearAllData();
 export const waitForStorageInitialization = () =>
   firebaseStorageService.waitForInitialization();
-export const syncData = () => firebaseStorageService.syncLocalToFirebase();
 export const exportAllData = () => firebaseStorageService.exportAllData();
 export const importAllData = (data) =>
   firebaseStorageService.importAllData(data);

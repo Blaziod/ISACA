@@ -89,11 +89,11 @@ const DataManagement = () => {
   const syncData = async () => {
     try {
       setIsLoading(true);
-      await storage.sync();
+      // Firebase-only storage doesn't need manual sync
       updateStatus();
-      setMessage("✅ Data synced successfully!");
+      setMessage("✅ Firebase storage is always synced!");
     } catch (error) {
-      setMessage("❌ Sync failed: " + error.message);
+      setMessage("❌ Error checking status: " + error.message);
     } finally {
       setIsLoading(false);
     }

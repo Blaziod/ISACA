@@ -245,23 +245,37 @@ const ScanInList = () => {
                 <th>Email</th>
                 <th>Check-In Time</th>
                 <th>Method</th>
+                <th>Duration</th>
               </tr>
             </thead>
             <tbody>
               ${filteredList
-                .map(
-                  (entry) => `
-                <tr>
-                  <td>${entry.userId}</td>
-                  <td>${entry.name}</td>
-                  <td>${entry.email}</td>
-                  <td>${formatDateTime(entry.timestamp)}</td>
-                  <td class="method-${(entry.entryMethod || "qr")
-                    .toLowerCase()
-                    .replace(" ", "-")}">${entry.entryMethod || "QR Code"}</td>
-                </tr>
-              `
-                )
+                .map((entry) => {
+                  const checkInTime = new Date(entry.timestamp);
+                  const now = new Date();
+                  const duration = Math.floor(
+                    (now - checkInTime) / (1000 * 60)
+                  ); // minutes
+                  const durationText =
+                    duration < 60
+                      ? `${duration}m`
+                      : `${Math.floor(duration / 60)}h ${duration % 60}m`;
+
+                  return `
+                    <tr>
+                      <td>${entry.userId}</td>
+                      <td>${entry.name}</td>
+                      <td>${entry.email}</td>
+                      <td>${formatDateTime(entry.timestamp)}</td>
+                      <td class="method-${(entry.entryMethod || "qr")
+                        .toLowerCase()
+                        .replace(" ", "-")}">${
+                    entry.entryMethod || "QR Code"
+                  }</td>
+                      <td>${durationText}</td>
+                    </tr>
+                  `;
+                })
                 .join("")}
             </tbody>
           </table>

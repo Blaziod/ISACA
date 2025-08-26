@@ -10,7 +10,13 @@ import {
   FaChartBar,
   FaClock,
 } from "react-icons/fa";
-import { storage, STORAGE_KEYS } from "../utils/storage";
+import {
+  storage,
+  STORAGE_KEYS,
+  getStorageStatus,
+  verifyDataIntegrity,
+  syncData,
+} from "../utils/storage";
 import "./Dashboard.css";
 
 const Dashboard = () => {
@@ -22,6 +28,8 @@ const Dashboard = () => {
   });
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [storageHealth, setStorageHealth] = useState(null);
+  const [isRepairing, setIsRepairing] = useState(false);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -49,6 +57,13 @@ const Dashboard = () => {
                 )
               : null,
         });
+
+        // Check storage health
+        const health = getStorageStatus();
+        setStorageHealth(health);
+
+        // Log health status for debugging
+        console.log("📊 Storage Health:", health);
       } catch (error) {
         console.error("Error loading dashboard stats:", error);
       }
@@ -63,6 +78,31 @@ const Dashboard = () => {
 
     return () => clearInterval(timer);
   }, []);
+
+  const handleRepairStorage = async () => {
+    setIsRepairing(true);
+    try {
+      console.log("🔧 Starting storage repair...");
+
+      // Verify and repair data integrity
+      await verifyDataIntegrity();
+
+      // Force sync with Firebase
+      await syncData();
+
+      // Refresh health status
+      const health = getStorageStatus();
+      setStorageHealth(health);
+
+      console.log("✅ Storage repair completed");
+      alert("Storage repair completed successfully!");
+    } catch (error) {
+      console.error("❌ Storage repair failed:", error);
+      alert("Storage repair failed. Check console for details.");
+    } finally {
+      setIsRepairing(false);
+    }
+  };
 
   const quickActions = [
     {
@@ -185,6 +225,63 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Storage Health Indicator */}
+      {storageHealth && (
+        <div className="storage-health-section">
+          <div className="storage-health-card">
+            <div className="storage-health-header">
+              <h3>Storage Health</h3>
+              <div
+                className={`status-indicator ${
+                  storageHealth.firebaseAvailable && storageHealth.isOnline
+                    ? "healthy"
+                    : "warning"
+                }`}
+              >
+                {storageHealth.firebaseAvailable && storageHealth.isOnline
+                  ? "🟢 Healthy"
+                  : "🟡 Issues Detected"}
+              </div>
+            </div>
+            <div className="storage-health-details">
+              <div className="health-item">
+                <span>
+                  Firebase:{" "}
+                  {storageHealth.firebaseAvailable
+                    ? "✅ Available"
+                    : "❌ Unavailable"}
+                </span>
+              </div>
+              <div className="health-item">
+                <span>
+                  Online:{" "}
+                  {storageHealth.isOnline ? "✅ Connected" : "❌ Offline"}
+                </span>
+              </div>
+              <div className="health-item">
+                <span>Storage Mode: Firebase Direct</span>
+              </div>
+              {storageHealth.pendingOperations > 0 && (
+                <div className="health-item warning">
+                  <span>
+                    ⚠️ Active operations: {storageHealth.pendingOperations}
+                  </span>
+                </div>
+              )}
+            </div>
+            {!storageHealth.firebaseAvailable && (
+              <button
+                className="repair-button"
+                onClick={handleRepairStorage}
+                disabled={isRepairing}
+              >
+                {isRepairing ? "🔧 Repairing..." : "🔧 Repair Storage"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="dashboard-content">
         <div className="section">
