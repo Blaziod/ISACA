@@ -10,6 +10,9 @@ import {
   FaSortAlphaDown,
   FaSortAlphaUp,
   FaHourglassHalf,
+  FaChevronDown,
+  FaChevronRight,
+  FaClock,
 } from "react-icons/fa";
 import {
   storage,
@@ -25,10 +28,12 @@ import "./ScanOutList.css";
 const ScanOutList = () => {
   const [scanOutList, setScanOutList] = useState([]);
   const [filteredList, setFilteredList] = useState([]);
+  const [consolidatedUsers, setConsolidatedUsers] = useState([]);
+  const [expandedUsers, setExpandedUsers] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
   const [sortOrder, setSortOrder] = useState("desc");
-  const [sortField, setSortField] = useState("timestamp");
+  const [sortField, setSortField] = useState("totalDuration");
 
   useEffect(() => {
     const initializeAndLoad = async () => {
@@ -40,6 +45,7 @@ const ScanOutList = () => {
 
   useEffect(() => {
     filterAndSortData();
+    consolidateUserData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanOutList, searchTerm, dateFilter, sortOrder, sortField]);
 
@@ -107,6 +113,102 @@ const ScanOutList = () => {
     setFilteredList(filtered);
   };
 
+  const consolidateUserData = () => {
+    // Group scan-out entries by user
+    const userGroups = {};
+
+    filteredList.forEach((entry) => {
+      const userKey = entry.userId;
+
+      if (!userGroups[userKey]) {
+        userGroups[userKey] = {
+          userId: entry.userId,
+          name: entry.name,
+          email: entry.email,
+          sessions: [],
+          totalDuration: 0,
+          sessionCount: 0,
+          lastCheckOut: entry.timestamp,
+          firstCheckIn: entry.checkInTime || entry.timestamp,
+        };
+      }
+
+      userGroups[userKey].sessions.push({
+        checkInTime: entry.checkInTime,
+        checkOutTime: entry.timestamp,
+        duration: entry.duration || 0,
+        entryMethod: entry.entryMethod || "QR Code",
+        id: entry.id,
+      });
+
+      userGroups[userKey].totalDuration += entry.duration || 0;
+      userGroups[userKey].sessionCount++;
+
+      // Update last checkout time
+      if (
+        new Date(entry.timestamp) > new Date(userGroups[userKey].lastCheckOut)
+      ) {
+        userGroups[userKey].lastCheckOut = entry.timestamp;
+      }
+
+      // Update first check-in time
+      if (
+        entry.checkInTime &&
+        new Date(entry.checkInTime) < new Date(userGroups[userKey].firstCheckIn)
+      ) {
+        userGroups[userKey].firstCheckIn = entry.checkInTime;
+      }
+    });
+
+    // Convert to array and sort sessions by time
+    const consolidated = Object.values(userGroups).map((user) => ({
+      ...user,
+      sessions: user.sessions.sort(
+        (a, b) =>
+          new Date(a.checkInTime || a.checkOutTime) -
+          new Date(b.checkInTime || b.checkOutTime)
+      ),
+    }));
+
+    // Sort consolidated users
+    consolidated.sort((a, b) => {
+      let aValue = a[sortField] || a.totalDuration;
+      let bValue = b[sortField] || b.totalDuration;
+
+      if (sortField === "lastCheckOut" || sortField === "firstCheckIn") {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      } else if (
+        sortField === "totalDuration" ||
+        sortField === "sessionCount"
+      ) {
+        aValue = Number(aValue);
+        bValue = Number(bValue);
+      } else if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (sortOrder === "asc") {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+    setConsolidatedUsers(consolidated);
+  };
+
+  const toggleUserExpansion = (userId) => {
+    const newExpanded = new Set(expandedUsers);
+    if (newExpanded.has(userId)) {
+      newExpanded.delete(userId);
+    } else {
+      newExpanded.add(userId);
+    }
+    setExpandedUsers(newExpanded);
+  };
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -118,33 +220,38 @@ const ScanOutList = () => {
 
   const getStatistics = () => {
     const today = new Date();
-    const todayEntries = scanOutList.filter(
-      (entry) =>
-        new Date(entry.timestamp).toDateString() === today.toDateString()
-    );
 
-    // Calculate average duration
-    const entriesWithDuration = scanOutList.filter(
-      (entry) => entry.duration > 0
+    // Calculate average duration for consolidated users
+    const totalUsersWithDuration = consolidatedUsers.filter(
+      (user) => user.totalDuration > 0
     );
     const avgDuration =
-      entriesWithDuration.length > 0
+      totalUsersWithDuration.length > 0
         ? Math.round(
-            entriesWithDuration.reduce(
-              (sum, entry) => sum + entry.duration,
+            totalUsersWithDuration.reduce(
+              (sum, user) => sum + user.totalDuration,
               0
-            ) / entriesWithDuration.length
+            ) / totalUsersWithDuration.length
           )
         : 0;
 
+    // Calculate total sessions today
+    const todayUsers = consolidatedUsers.filter((user) =>
+      user.sessions.some(
+        (session) =>
+          new Date(session.checkOutTime).toDateString() === today.toDateString()
+      )
+    );
+
     return {
-      total: scanOutList.length,
-      today: todayEntries.length,
-      thisWeek: scanOutList.filter((entry) => {
-        const entryDate = new Date(entry.timestamp);
+      total: consolidatedUsers.length,
+      today: todayUsers.length,
+      thisWeek: consolidatedUsers.filter((user) => {
         const weekAgo = new Date(today);
         weekAgo.setDate(weekAgo.getDate() - 7);
-        return entryDate >= weekAgo;
+        return user.sessions.some(
+          (session) => new Date(session.checkOutTime) >= weekAgo
+        );
       }).length,
       avgDuration: avgDuration,
       lastEntry:
@@ -449,7 +556,7 @@ const ScanOutList = () => {
         </div>
 
         <div className="table-section">
-          {filteredList.length === 0 ? (
+          {consolidatedUsers.length === 0 ? (
             <div className="empty-state">
               <FaSignOutAlt className="empty-icon" />
               <h3>No check-outs found</h3>
@@ -464,6 +571,7 @@ const ScanOutList = () => {
               <table className="entries-table">
                 <thead>
                   <tr>
+                    <th style={{ width: "40px" }}>Sessions</th>
                     <th
                       className="sortable"
                       onClick={() => handleSort("userId")}
@@ -499,10 +607,10 @@ const ScanOutList = () => {
                     </th>
                     <th
                       className="sortable"
-                      onClick={() => handleSort("checkInTime")}
+                      onClick={() => handleSort("sessionCount")}
                     >
-                      Check-In Time
-                      {sortField === "checkInTime" &&
+                      Sessions
+                      {sortField === "sessionCount" &&
                         (sortOrder === "asc" ? (
                           <FaSortAlphaDown />
                         ) : (
@@ -511,10 +619,10 @@ const ScanOutList = () => {
                     </th>
                     <th
                       className="sortable"
-                      onClick={() => handleSort("timestamp")}
+                      onClick={() => handleSort("totalDuration")}
                     >
-                      Check-Out Time
-                      {sortField === "timestamp" &&
+                      Total Duration
+                      {sortField === "totalDuration" &&
                         (sortOrder === "asc" ? (
                           <FaSortAlphaDown />
                         ) : (
@@ -523,74 +631,145 @@ const ScanOutList = () => {
                     </th>
                     <th
                       className="sortable"
-                      onClick={() => handleSort("duration")}
+                      onClick={() => handleSort("lastCheckOut")}
                     >
-                      Duration
-                      {sortField === "duration" &&
+                      Last Check-Out
+                      {sortField === "lastCheckOut" &&
                         (sortOrder === "asc" ? (
                           <FaSortAlphaDown />
                         ) : (
                           <FaSortAlphaUp />
                         ))}
                     </th>
-                    <th>Method</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredList.map((entry) => (
-                    <tr key={entry.id}>
-                      <td className="entry-id">{entry.userId}</td>
-                      <td className="entry-name">{entry.name}</td>
-                      <td className="entry-email">{entry.email}</td>
-                      <td className="entry-time">
-                        {entry.checkInTime ? (
+                  {consolidatedUsers.map((user) => (
+                    <>
+                      <tr key={user.userId} className="user-row">
+                        <td className="expand-cell">
+                          <button
+                            className="expand-button"
+                            onClick={() => toggleUserExpansion(user.userId)}
+                            title={`${
+                              expandedUsers.has(user.userId) ? "Hide" : "Show"
+                            } session details`}
+                          >
+                            {expandedUsers.has(user.userId) ? (
+                              <FaChevronDown />
+                            ) : (
+                              <FaChevronRight />
+                            )}
+                          </button>
+                        </td>
+                        <td className="entry-id">{user.userId}</td>
+                        <td className="entry-name">{user.name}</td>
+                        <td className="entry-email">{user.email}</td>
+                        <td className="session-count">
+                          <span className="count-badge">
+                            {user.sessionCount}
+                          </span>
+                        </td>
+                        <td className="entry-duration">
+                          <span
+                            className={`duration-badge total ${
+                              user.totalDuration > 480
+                                ? "long"
+                                : user.totalDuration > 240
+                                ? "medium"
+                                : "short"
+                            }`}
+                          >
+                            {formatDuration(user.totalDuration)}
+                          </span>
+                        </td>
+                        <td className="entry-time">
                           <div className="time-info">
                             <div className="time">
-                              {formatTime(entry.checkInTime)}
+                              {formatTime(user.lastCheckOut)}
                             </div>
                             <div className="date">
-                              {new Date(entry.checkInTime).toLocaleDateString()}
+                              {new Date(user.lastCheckOut).toLocaleDateString()}
                             </div>
                           </div>
-                        ) : (
-                          <span className="no-data">--</span>
-                        )}
-                      </td>
-                      <td className="entry-time">
-                        <div className="time-info">
-                          <div className="time">
-                            {formatTime(entry.timestamp)}
-                          </div>
-                          <div className="date">
-                            {new Date(entry.timestamp).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="entry-duration">
-                        <span
-                          className={`duration-badge ${
-                            entry.duration > 480
-                              ? "long"
-                              : entry.duration > 240
-                              ? "medium"
-                              : "short"
-                          }`}
+                        </td>
+                      </tr>
+                      {expandedUsers.has(user.userId) && (
+                        <tr
+                          key={`${user.userId}-details`}
+                          className="session-details-row"
                         >
-                          {formatDuration(entry.duration)}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={`method-badge ${
-                            entry.entryMethod === "manual" ? "manual" : "qr"
-                          }`}
-                        >
-                          {entry.entryMethod === "manual"
-                            ? "Manual"
-                            : "QR Code"}
-                        </span>
-                      </td>
-                    </tr>
+                          <td colSpan="7" className="session-details-cell">
+                            <div className="session-details">
+                              <div className="session-header">
+                                <FaClock className="session-icon" />
+                                <h4>Session Details</h4>
+                              </div>
+                              <div className="sessions-list">
+                                {user.sessions.map((session, index) => (
+                                  <div
+                                    key={session.id || index}
+                                    className="session-item"
+                                  >
+                                    <div className="session-number">
+                                      #{index + 1}
+                                    </div>
+                                    <div className="session-times">
+                                      <div className="session-time">
+                                        <span className="time-label">
+                                          Check-In:
+                                        </span>
+                                        <span className="time-value">
+                                          {session.checkInTime
+                                            ? formatDateTime(
+                                                session.checkInTime
+                                              )
+                                            : "--"}
+                                        </span>
+                                      </div>
+                                      <div className="session-time">
+                                        <span className="time-label">
+                                          Check-Out:
+                                        </span>
+                                        <span className="time-value">
+                                          {formatDateTime(session.checkOutTime)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="session-duration">
+                                      <span
+                                        className={`duration-badge ${
+                                          session.duration > 480
+                                            ? "long"
+                                            : session.duration > 240
+                                            ? "medium"
+                                            : "short"
+                                        }`}
+                                      >
+                                        {formatDuration(session.duration)}
+                                      </span>
+                                    </div>
+                                    <div className="session-method">
+                                      <span
+                                        className={`method-badge ${
+                                          session.entryMethod === "manual"
+                                            ? "manual"
+                                            : "qr"
+                                        }`}
+                                      >
+                                        {session.entryMethod === "manual"
+                                          ? "Manual"
+                                          : "QR Code"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
