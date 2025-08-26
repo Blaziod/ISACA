@@ -4,14 +4,14 @@ import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyA6LoJKcgDPEtdwRTdvI0kQGSUhgDjBUT4",
+  authDomain: "accesscode-e53dc.firebaseapp.com",
+  databaseURL: "https://accesscode-e53dc-default-rtdb.firebaseio.com",
+  projectId: "accesscode-e53dc",
+  storageBucket: "accesscode-e53dc.firebasestorage.app",
+  messagingSenderId: "559980640727",
+  appId: "1:559980640727:web:4fce58a2df15061f757392",
+  measurementId: "G-J70F1J8DBM",
 };
 
 // Initialize Firebase
