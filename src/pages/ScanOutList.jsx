@@ -31,7 +31,7 @@ const ScanOutList = () => {
   const [consolidatedUsers, setConsolidatedUsers] = useState([]);
   const [expandedUsers, setExpandedUsers] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("desc");
   const [sortField, setSortField] = useState("totalDuration");
 
