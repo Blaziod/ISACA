@@ -19,6 +19,7 @@ const ManualCode = () => {
   const [inputType, setInputType] = useState("single"); // single, json
   const [parsedJson, setParsedJson] = useState(null);
   const [autoClearCountdown, setAutoClearCountdown] = useState(0);
+  const [lastProcessedCode, setLastProcessedCode] = useState(""); // Track last processed code
   const [recentCodes, setRecentCodes] = useState(() => {
     return JSON.parse(localStorage.getItem("recentCodes") || "[]");
   });
@@ -142,6 +143,7 @@ const ManualCode = () => {
     try {
       const result = await processManualCode(searchValue);
       setSearchResult(result);
+      setLastProcessedCode(searchValue); // Track that this code was processed
 
       if (result.success) {
         // Add to recent codes
@@ -167,6 +169,7 @@ const ManualCode = () => {
               setParsedJson(null);
               setInputType("single");
               setSearchField("auto");
+              setLastProcessedCode(""); // Reset tracking
               return 0;
             }
             return prev - 1;
@@ -240,6 +243,14 @@ const ManualCode = () => {
       return;
     }
 
+    // Prevent double processing if auto-search already handled this code
+    if (lastProcessedCode === code.trim()) {
+      console.log(
+        "Code already processed by auto-search, skipping manual submit"
+      );
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     setSearchResult(null);
@@ -250,6 +261,7 @@ const ManualCode = () => {
     try {
       const result = await processManualCode(code.trim());
       setSearchResult(result);
+      setLastProcessedCode(code.trim()); // Track that this code was processed
 
       if (result.success) {
         // Add to recent codes
@@ -270,6 +282,7 @@ const ManualCode = () => {
         setParsedJson(null);
         setInputType("single");
         setSearchField("auto");
+        setLastProcessedCode(""); // Reset tracking
       }
     } catch {
       setError("Failed to process code. Please try again.");
