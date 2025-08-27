@@ -55,13 +55,21 @@ const ScanInList = () => {
 
   const filterAndSortData = () => {
     let filtered = scanInList.filter((entry) => {
-      // Search filter
+      // Ensure entry exists and has required properties
+      if (!entry || typeof entry !== "object") return false;
+
+      // Search filter - add null/undefined checks
       const matchesSearch =
-        entry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.userId.toLowerCase().includes(searchTerm.toLowerCase());
+        (entry.name &&
+          entry.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (entry.email &&
+          entry.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (entry.userId &&
+          entry.userId.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Date filter
+      if (!entry.timestamp) return matchesSearch; // Skip date filter if no timestamp
+
       const entryDate = new Date(entry.timestamp);
       const today = new Date();
       const yesterday = new Date(today);
@@ -91,10 +99,14 @@ const ScanInList = () => {
       let aValue = a[sortField];
       let bValue = b[sortField];
 
+      // Handle undefined/null values
+      if (aValue === undefined || aValue === null) aValue = "";
+      if (bValue === undefined || bValue === null) bValue = "";
+
       if (sortField === "timestamp") {
         aValue = new Date(aValue);
         bValue = new Date(bValue);
-      } else if (typeof aValue === "string") {
+      } else if (typeof aValue === "string" && typeof bValue === "string") {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
@@ -273,6 +285,7 @@ const ScanInList = () => {
                       <td>${entry.email}</td>
                       <td>${formatDateTime(entry.timestamp)}</td>
                       <td class="method-${(entry.entryMethod || "qr")
+                        .toString()
                         .toLowerCase()
                         .replace(" ", "-")}">${
                     entry.entryMethod || "QR Code"
