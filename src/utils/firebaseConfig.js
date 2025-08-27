@@ -19,7 +19,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase services
-export const database = getDatabase(app);
 export const auth = getAuth(app);
+export const database = getDatabase(app);
+
+// Ensure database uses the same auth context
+console.log("🔥 Firebase services initialized with app:", app.name);
 
 export default app;
