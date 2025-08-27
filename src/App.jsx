@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Navigation from "./components/Navigation";
 import Dashboard from "./pages/Dashboard";
@@ -14,20 +14,18 @@ import DataManagement from "./pages/DataManagement";
 import { storage } from "./utils/storage";
 import "./App.css";
 
-function App() {
+function AppContent() {
   const [storageStatus, setStorageStatus] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const { currentUser, isLoading } = useAuth();
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Wait for storage service to initialize (Firebase connection check)
+        // Wait for storage service to initialize (no auth check)
         await storage.initialize();
 
-        // Firebase-only storage doesn't need manual sync
-        console.log("Firebase storage initialized successfully");
-
-        // Get the updated storage status
+        // Get the storage status (will reflect auth state)
         const status = storage.getStatus();
         setStorageStatus(status);
         console.log("App initialized with storage status:", status);
@@ -43,10 +41,13 @@ function App() {
       }
     };
 
-    initializeApp();
-  }, []);
+    // Only initialize after auth state is determined
+    if (!isLoading) {
+      initializeApp();
+    }
+  }, [isLoading, currentUser]);
 
-  if (!isInitialized) {
+  if (!isInitialized || isLoading) {
     return (
       <div className="app-loading">
         <div className="loading-spinner"></div>
@@ -56,29 +57,35 @@ function App() {
   }
 
   return (
+    <Router>
+      <div className="app">
+        <ProtectedRoute>
+          <Navigation storageStatus={storageStatus} />
+          <main className="main-content">
+            <Routes>
+              <Route
+                path="/"
+                element={<Dashboard storageStatus={storageStatus} />}
+              />
+              <Route path="/scan" element={<QRScanner />} />
+              <Route path="/code" element={<ManualCode />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/registered-list" element={<RegisteredList />} />
+              <Route path="/scan-in-list" element={<ScanInList />} />
+              <Route path="/scan-out-list" element={<ScanOutList />} />
+              <Route path="/data-management" element={<DataManagement />} />
+            </Routes>
+          </main>
+        </ProtectedRoute>
+      </div>
+    </Router>
+  );
+}
+
+function App() {
+  return (
     <AuthProvider>
-      <Router>
-        <div className="app">
-          <ProtectedRoute>
-            <Navigation storageStatus={storageStatus} />
-            <main className="main-content">
-              <Routes>
-                <Route
-                  path="/"
-                  element={<Dashboard storageStatus={storageStatus} />}
-                />
-                <Route path="/scan" element={<QRScanner />} />
-                <Route path="/code" element={<ManualCode />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/registered-list" element={<RegisteredList />} />
-                <Route path="/scan-in-list" element={<ScanInList />} />
-                <Route path="/scan-out-list" element={<ScanOutList />} />
-                <Route path="/data-management" element={<DataManagement />} />
-              </Routes>
-            </main>
-          </ProtectedRoute>
-        </div>
-      </Router>
+      <AppContent />
     </AuthProvider>
   );
 }

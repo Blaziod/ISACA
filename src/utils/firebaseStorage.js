@@ -15,30 +15,36 @@ class FirebaseStorageService {
     this.firebaseAvailable = true;
     this.initialized = false;
     this.pendingOperations = new Map(); // Track pending operations
+    this.authUser = null; // Track current authenticated user
 
+    // Don't initialize immediately - wait for auth
     this.initializeService();
   }
 
   async initializeService() {
     console.log("🔥 Initializing Firebase Storage Service...");
     try {
-      // Test Firebase connection by trying to read existing data
-      const testRef = ref(database, STORAGE_KEYS.REGISTERED_USERS);
-      await get(testRef);
-
+      // Just mark as initialized - we'll check auth on each operation
       this.firebaseAvailable = true;
-      console.log("✅ Firebase connection successful");
+      this.initialized = true;
+      console.log("✅ Firebase Storage Service initialized (auth-aware mode)");
     } catch (error) {
       console.error("❌ Firebase initialization failed:", error);
       this.firebaseAvailable = false;
-      throw new Error(
-        "Firebase is required for operation. Please check your connection and try again."
-      );
-    } finally {
-      this.initialized = true;
-      console.log(
-        `🔥 Firebase Storage Service initialized. Firebase available: ${this.firebaseAvailable}`
-      );
+      this.initialized = true; // Still mark as initialized even if failed
+    }
+  }
+
+  // Set the current authenticated user
+  setAuthUser(user) {
+    this.authUser = user;
+    console.log(`🔐 Auth user set: ${user ? user.email : "none"}`);
+  }
+
+  // Check if user is authenticated
+  checkAuthRequired() {
+    if (!this.authUser) {
+      throw new Error("Authentication required. Please log in to access data.");
     }
   }
 
@@ -49,6 +55,9 @@ class FirebaseStorageService {
     if (!this.firebaseAvailable) {
       throw new Error("Firebase is not available. Cannot retrieve data.");
     }
+
+    // Check if user is authenticated
+    this.checkAuthRequired();
 
     try {
       console.log(`🔥 Fetching ${key} from Firebase...`);
@@ -99,6 +108,9 @@ class FirebaseStorageService {
     if (!this.firebaseAvailable) {
       throw new Error("Firebase is not available. Cannot save data.");
     }
+
+    // Check if user is authenticated
+    this.checkAuthRequired();
 
     // Prevent concurrent operations on the same key
     if (this.pendingOperations.has(key)) {
@@ -369,6 +381,7 @@ export const addScanOutEntry = (entry) =>
   firebaseStorageService.addItem(STORAGE_KEYS.SCAN_OUT_LIST, entry);
 
 export const getStorageStatus = () => firebaseStorageService.getStatus();
+export const setAuthUser = (user) => firebaseStorageService.setAuthUser(user);
 export const verifyDataIntegrity = () =>
   firebaseStorageService.verifyDataIntegrity();
 export const clearAllData = () => firebaseStorageService.clearAllData();

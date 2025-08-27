@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -7,18 +8,21 @@ import {
   FaEye,
   FaEyeSlash,
   FaQrcode,
+  FaUserPlus,
 } from "react-icons/fa";
 import "./Login.css";
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
-    username: "",
+    email: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [mode, setMode] = useState("login"); // "login" or "register"
+  const { login, register, resetPassword } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -31,31 +35,68 @@ const Login = () => {
     if (error) {
       setError("");
     }
+    if (success) {
+      setSuccess("");
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!credentials.username || !credentials.password) {
-      setError("Please enter both username and password");
+    if (!credentials.email || !credentials.password) {
+      setError("Please enter both email and password");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(credentials.email)) {
+      setError("Please enter a valid email address");
       return;
     }
 
     setIsLoading(true);
     setError("");
+    setSuccess("");
 
     try {
-      const result = login(credentials.username, credentials.password);
+      let result;
+      if (mode === "register") {
+        result = await register(credentials.email, credentials.password);
+        if (result.success) {
+          setSuccess("Registration successful! You can now log in.");
+          setMode("login");
+          setCredentials({ email: "", password: "" });
+        }
+      } else {
+        result = await login(credentials.email, credentials.password);
+      }
 
       if (!result.success) {
         setError(result.message);
       }
-      // If successful, the AuthContext will handle the redirect
-      // eslint-disable-next-line no-unused-vars
     } catch (err) {
-      setError("An error occurred during login");
+      setError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!credentials.email) {
+      setError("Please enter your email address first");
+      return;
+    }
+
+    try {
+      const result = await resetPassword(credentials.email);
+      if (result.success) {
+        setSuccess("Password reset email sent! Check your inbox.");
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      setError("Failed to send password reset email");
     }
   };
 
@@ -78,20 +119,26 @@ const Login = () => {
               </div>
             )}
 
+            {success && (
+              <div className="success-message">
+                <span>{success}</span>
+              </div>
+            )}
+
             <div className="form-group">
-              <label htmlFor="username" className="form-label">
+              <label htmlFor="email" className="form-label">
                 <FaUser className="label-icon" />
-                Username
+                Email Address
               </label>
               <input
-                type="text"
-                id="username"
-                name="username"
-                value={credentials.username}
+                type="email"
+                id="email"
+                name="email"
+                value={credentials.email}
                 onChange={handleChange}
                 className="form-input"
-                placeholder="Enter your username"
-                autoComplete="username"
+                placeholder="Enter your email"
+                autoComplete="email"
                 required
               />
             </div>
@@ -128,26 +175,54 @@ const Login = () => {
               type="submit"
               className="login-button"
               disabled={
-                isLoading || !credentials.username || !credentials.password
+                isLoading || !credentials.email || !credentials.password
               }
             >
               <FaSignInAlt className="button-icon" />
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading
+                ? mode === "register"
+                  ? "Creating Account..."
+                  : "Signing in..."
+                : mode === "register"
+                ? "Create Account"
+                : "Sign In"}
               {isLoading && <div className="button-spinner"></div>}
             </button>
           </form>
 
           <div className="login-footer">
-            <div className="default-credentials">
+            <div className="auth-links">
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => {
+                  setMode(mode === "login" ? "register" : "login");
+                  setError("");
+                  setSuccess("");
+                }}
+              >
+                {mode === "login"
+                  ? "Need an account? Sign up"
+                  : "Already have an account? Sign in"}
+              </button>
+
+              {mode === "login" && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={handleForgotPassword}
+                  disabled={!credentials.email}
+                >
+                  Forgot Password?
+                </button>
+              )}
+            </div>
+
+            <div className="auth-note">
               <p>
-                <strong>Default Credentials:</strong>
+                <strong>First Time Setup:</strong>
               </p>
-              <p>
-                Username: <code>admin</code>
-              </p>
-              <p>
-                Password: <code>admin123</code>
-              </p>
+              <p>Create an admin account to secure your database</p>
             </div>
           </div>
         </div>
