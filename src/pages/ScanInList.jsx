@@ -10,6 +10,8 @@ import {
   FaFilter,
   FaSortAlphaDown,
   FaSortAlphaUp,
+  FaSignOutAlt,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import {
   storage,
@@ -17,6 +19,7 @@ import {
   formatDateTime,
   formatTime,
   exportToCSV,
+  generateId,
 } from "../utils/storage";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -29,6 +32,8 @@ const ScanInList = () => {
   const [dateFilter, setDateFilter] = useState("today");
   const [sortOrder, setSortOrder] = useState("desc");
   const [sortField, setSortField] = useState("timestamp");
+  const [showBulkCheckoutModal, setShowBulkCheckoutModal] = useState(false);
+  const [isBulkCheckingOut, setIsBulkCheckingOut] = useState(false);
 
   useEffect(() => {
     const initializeAndLoad = async () => {
@@ -288,6 +293,68 @@ const ScanInList = () => {
     printWindow.print();
   };
 
+  const handleBulkCheckout = () => {
+    if (scanInList.length === 0) {
+      alert("No users are currently checked in.");
+      return;
+    }
+    setShowBulkCheckoutModal(true);
+  };
+
+  const confirmBulkCheckout = async () => {
+    setIsBulkCheckingOut(true);
+
+    try {
+      const timestamp = new Date().toISOString();
+      const scanOutEntries = [];
+
+      // Create checkout entries for all checked-in users
+      for (const scanInEntry of scanInList) {
+        const duration = Math.floor(
+          (new Date(timestamp) - new Date(scanInEntry.timestamp)) / (1000 * 60)
+        );
+
+        const scanOutEntry = {
+          id: generateId("BULK_OUT"),
+          userId: scanInEntry.userId,
+          name: scanInEntry.name,
+          email: scanInEntry.email,
+          timestamp: timestamp,
+          checkInTime: scanInEntry.timestamp,
+          duration: duration,
+          type: "bulk-checkout",
+          entryMethod: "bulk-operation",
+          note: "Bulk checkout operation",
+        };
+
+        scanOutEntries.push(scanOutEntry);
+      }
+
+      // Add all checkout entries to scan-out list
+      for (const entry of scanOutEntries) {
+        await storage.addScanOut(entry);
+      }
+
+      // Clear the scan-in list
+      await storage.set(STORAGE_KEYS.SCAN_IN_LIST, []);
+
+      // Refresh the display
+      await loadScanInData();
+
+      setShowBulkCheckoutModal(false);
+      alert(`Successfully checked out ${scanOutEntries.length} users.`);
+    } catch (error) {
+      console.error("Error during bulk checkout:", error);
+      alert("Failed to complete bulk checkout. Please try again.");
+    }
+
+    setIsBulkCheckingOut(false);
+  };
+
+  const cancelBulkCheckout = () => {
+    setShowBulkCheckoutModal(false);
+  };
+
   const stats = getStatistics();
 
   return (
@@ -306,6 +373,19 @@ const ScanInList = () => {
           </div>
 
           <div className="header-actions">
+            <button
+              className="btn btn-warning bulk-checkout-btn"
+              onClick={handleBulkCheckout}
+              disabled={scanInList.length === 0}
+              title={
+                scanInList.length === 0
+                  ? "No users checked in"
+                  : `Check out all ${scanInList.length} users`
+              }
+            >
+              <FaSignOutAlt />
+              Check Out All ({scanInList.length})
+            </button>
             <button className="btn btn-secondary" onClick={handlePrint}>
               <FaPrint />
               Print
@@ -510,6 +590,69 @@ const ScanInList = () => {
             </div>
           )}
         </div>
+
+        {/* Bulk Checkout Confirmation Modal */}
+        {showBulkCheckoutModal && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <div className="modal-header">
+                <h3>
+                  <FaExclamationTriangle />
+                  Confirm Bulk Checkout
+                </h3>
+              </div>
+              <div className="modal-body">
+                <p>
+                  Are you sure you want to check out{" "}
+                  <strong>ALL {scanInList.length} users</strong> who are
+                  currently checked in?
+                </p>
+                <div className="bulk-checkout-details">
+                  <h4>This will:</h4>
+                  <ul>
+                    <li>
+                      ✓ Create checkout entries for all {scanInList.length}{" "}
+                      users
+                    </li>
+                    <li>✓ Calculate duration for each user</li>
+                    <li>✓ Move all entries to the scan-out list</li>
+                    <li>✓ Clear the current check-in list</li>
+                  </ul>
+                  <p className="warning-text">
+                    <FaExclamationTriangle />
+                    This action cannot be undone!
+                  </p>
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button
+                  className="btn btn-secondary"
+                  onClick={cancelBulkCheckout}
+                  disabled={isBulkCheckingOut}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-warning"
+                  onClick={confirmBulkCheckout}
+                  disabled={isBulkCheckingOut}
+                >
+                  {isBulkCheckingOut ? (
+                    <>
+                      <div className="loading"></div>
+                      Checking Out...
+                    </>
+                  ) : (
+                    <>
+                      <FaSignOutAlt />
+                      Check Out All {scanInList.length} Users
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

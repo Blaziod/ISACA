@@ -35,6 +35,11 @@ const RegisteredList = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+  const [isUpdating, setIsUpdating] = useState(false);
   const [isEmailConfigured, setIsEmailConfigured] = useState(false);
 
   useEffect(() => {
@@ -133,6 +138,155 @@ const RegisteredList = () => {
   const handleDeleteUser = (user) => {
     setUserToDelete(user);
     setShowDeleteModal(true);
+  };
+
+  const handleEditUser = (user) => {
+    setUserToEdit(user);
+    setEditFormData({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      isacaId: user.isacaId || "",
+      participationCategory: user.participationCategory || "",
+      organisation: user.organisation || "",
+      designation: user.designation || "",
+      backupCode: user.backupCode || "",
+      notes: user.notes || "",
+    });
+    setEditErrors({});
+    setShowEditModal(true);
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    // Clear error when user starts typing
+    if (editErrors[name]) {
+      setEditErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
+  };
+
+  const validateEditForm = () => {
+    const newErrors = {};
+
+    if (!editFormData.name.trim()) {
+      newErrors.name = "Name is required";
+    }
+
+    if (!editFormData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(editFormData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!editFormData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^[+]?[\d\s\-()]+$/.test(editFormData.phone)) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
+
+    // Check for duplicate email/phone (excluding current user)
+    const emailExists = users.some(
+      (u) => u.id !== userToEdit.id && u.email === editFormData.email.trim()
+    );
+    const phoneExists = users.some(
+      (u) => u.id !== userToEdit.id && u.phone === editFormData.phone.trim()
+    );
+
+    if (emailExists) {
+      newErrors.email = "Email already exists for another user";
+    }
+    if (phoneExists) {
+      newErrors.phone = "Phone number already exists for another user";
+    }
+
+    setEditErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleUpdateUser = async () => {
+    if (!validateEditForm()) {
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      // Create updated user object
+      const updatedUser = {
+        ...userToEdit,
+        ...editFormData,
+        email: editFormData.email.trim(),
+        phone: editFormData.phone.trim(),
+        name: editFormData.name.trim(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Update users list
+      const updatedUsers = users.map((user) =>
+        user.id === userToEdit.id ? updatedUser : user
+      );
+
+      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
+      setUsers(updatedUsers);
+
+      // Update scan lists if name or email changed
+      if (
+        userToEdit.name !== updatedUser.name ||
+        userToEdit.email !== updatedUser.email
+      ) {
+        const [scanInList, scanOutList] = await Promise.all([
+          storage.get(STORAGE_KEYS.SCAN_IN_LIST, []),
+          storage.get(STORAGE_KEYS.SCAN_OUT_LIST, []),
+        ]);
+
+        // Update scan-in list
+        const updatedScanInList = scanInList.map((entry) =>
+          entry.userId === userToEdit.id
+            ? { ...entry, name: updatedUser.name, email: updatedUser.email }
+            : entry
+        );
+
+        // Update scan-out list
+        const updatedScanOutList = scanOutList.map((entry) =>
+          entry.userId === userToEdit.id
+            ? { ...entry, name: updatedUser.name, email: updatedUser.email }
+            : entry
+        );
+
+        await Promise.all([
+          storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList),
+          storage.set(STORAGE_KEYS.SCAN_OUT_LIST, updatedScanOutList),
+        ]);
+      }
+
+      // Close modal and reset state
+      setShowEditModal(false);
+      setUserToEdit(null);
+      setEditFormData({});
+      setEditErrors({});
+    } catch (error) {
+      console.error("Error updating user:", error);
+      setEditErrors({
+        submit: "Failed to update user. Please try again.",
+      });
+    }
+
+    setIsUpdating(false);
+  };
+
+  const cancelEdit = () => {
+    setShowEditModal(false);
+    setUserToEdit(null);
+    setEditFormData({});
+    setEditErrors({});
   };
 
   const confirmDelete = async () => {
@@ -602,6 +756,7 @@ const RegisteredList = () => {
                         <div className="action-buttons">
                           <button
                             className="action-btn edit-btn"
+                            onClick={() => handleEditUser(user)}
                             title="Edit User"
                           >
                             <FaEdit />
@@ -667,6 +822,211 @@ const RegisteredList = () => {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal modal-large">
+            <div className="modal-header">
+              <h3>
+                <FaEdit /> Edit User: {userToEdit?.name}
+              </h3>
+              <button className="modal-close" onClick={cancelEdit}>
+                ×
+              </button>
+            </div>
+
+            <form className="edit-form" onSubmit={(e) => e.preventDefault()}>
+              {editErrors.submit && (
+                <div className="alert alert-error">{editErrors.submit}</div>
+              )}
+
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="edit-name" className="form-label">
+                    <FaUsers />
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-name"
+                    name="name"
+                    value={editFormData.name || ""}
+                    onChange={handleEditInputChange}
+                    className={`form-input ${editErrors.name ? "error" : ""}`}
+                    placeholder="Enter full name"
+                  />
+                  {editErrors.name && (
+                    <span className="error-text">{editErrors.name}</span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-email" className="form-label">
+                    <FaEnvelope />
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    id="edit-email"
+                    name="email"
+                    value={editFormData.email || ""}
+                    onChange={handleEditInputChange}
+                    className={`form-input ${editErrors.email ? "error" : ""}`}
+                    placeholder="Enter email address"
+                  />
+                  {editErrors.email && (
+                    <span className="error-text">{editErrors.email}</span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-phone" className="form-label">
+                    📞 Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    id="edit-phone"
+                    name="phone"
+                    value={editFormData.phone || ""}
+                    onChange={handleEditInputChange}
+                    className={`form-input ${editErrors.phone ? "error" : ""}`}
+                    placeholder="Enter phone number"
+                  />
+                  {editErrors.phone && (
+                    <span className="error-text">{editErrors.phone}</span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-isacaId" className="form-label">
+                    🆔 ISACA ID
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-isacaId"
+                    name="isacaId"
+                    value={editFormData.isacaId || ""}
+                    onChange={handleEditInputChange}
+                    className="form-input"
+                    placeholder="Enter ISACA ID"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label
+                    htmlFor="edit-participationCategory"
+                    className="form-label"
+                  >
+                    📊 Participation Category
+                  </label>
+                  <select
+                    id="edit-participationCategory"
+                    name="participationCategory"
+                    value={editFormData.participationCategory || ""}
+                    onChange={handleEditInputChange}
+                    className="form-input"
+                  >
+                    <option value="">Select category</option>
+                    <option value="Physical">Physical</option>
+                    <option value="Virtual">Virtual</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-organisation" className="form-label">
+                    🏢 Organisation
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-organisation"
+                    name="organisation"
+                    value={editFormData.organisation || ""}
+                    onChange={handleEditInputChange}
+                    className="form-input"
+                    placeholder="Enter organisation"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-designation" className="form-label">
+                    💼 Designation
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-designation"
+                    name="designation"
+                    value={editFormData.designation || ""}
+                    onChange={handleEditInputChange}
+                    className="form-input"
+                    placeholder="Enter job title/designation"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-backupCode" className="form-label">
+                    🔑 Backup Code
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-backupCode"
+                    name="backupCode"
+                    value={editFormData.backupCode || ""}
+                    onChange={handleEditInputChange}
+                    className="form-input"
+                    placeholder="Backup access code"
+                  />
+                </div>
+
+                <div className="form-group form-group-full">
+                  <label htmlFor="edit-notes" className="form-label">
+                    📝 Notes
+                  </label>
+                  <textarea
+                    id="edit-notes"
+                    name="notes"
+                    value={editFormData.notes || ""}
+                    onChange={handleEditInputChange}
+                    className="form-input form-textarea"
+                    placeholder="Additional notes (optional)"
+                    rows="3"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={cancelEdit}
+                  disabled={isUpdating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleUpdateUser}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? (
+                    <>
+                      <div className="loading"></div>
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <FaEdit />
+                      Update User
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
