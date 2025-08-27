@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import QRScanner from "./pages/QRScanner";
 import ManualCode from "./pages/ManualCode";
 import Register from "./pages/Register";
+import ReRegister from "./pages/ReRegister";
+import MissedCheckin from "./pages/MissedCheckin";
 import RegisteredList from "./pages/RegisteredList";
 import ScanInList from "./pages/ScanInList";
 import ScanOutList from "./pages/ScanOutList";
@@ -70,6 +72,8 @@ function AppContent() {
               <Route path="/scan" element={<QRScanner />} />
               <Route path="/code" element={<ManualCode />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/re-register" element={<ReRegister />} />
+              <Route path="/missed-checkin" element={<MissedCheckin />} />
               <Route path="/registered-list" element={<RegisteredList />} />
               <Route path="/scan-in-list" element={<ScanInList />} />
               <Route path="/scan-out-list" element={<ScanOutList />} />
