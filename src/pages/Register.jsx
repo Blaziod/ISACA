@@ -137,8 +137,6 @@ const Register = () => {
 
       // Generate QR code data URL
       const qrData = JSON.stringify({
-        id: userId,
-        name: formData.name,
         email: formData.email,
       });
 

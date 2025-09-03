@@ -69,11 +69,16 @@ const RegisteredList = () => {
 
   const filterAndSortUsers = () => {
     let filtered = users.filter((user) => {
+      // Ensure user exists and has required properties
+      if (!user || typeof user !== "object") return false;
+
       const matchesSearch =
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone.includes(searchTerm) ||
-        user.id.toLowerCase().includes(searchTerm.toLowerCase());
+        (user.name &&
+          user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.email &&
+          user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.phone && user.phone.includes(searchTerm)) ||
+        (user.id && user.id.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesFilter =
         filterStatus === "all" || user.status === filterStatus;
@@ -86,12 +91,16 @@ const RegisteredList = () => {
       let aValue = a[sortField];
       let bValue = b[sortField];
 
+      // Handle undefined/null values
+      if (aValue === undefined || aValue === null) aValue = "";
+      if (bValue === undefined || bValue === null) bValue = "";
+
       if (sortField === "registeredAt") {
         aValue = new Date(aValue);
         bValue = new Date(bValue);
       }
 
-      if (typeof aValue === "string") {
+      if (typeof aValue === "string" && typeof bValue === "string") {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
@@ -346,10 +355,10 @@ const RegisteredList = () => {
 
     // Table
     const tableData = filteredUsers.map((user) => [
-      user.id,
-      user.name,
-      user.email,
-      user.phone,
+      user.id || "-",
+      user.name || "-",
+      user.email || "-",
+      user.phone || "-",
       user.organisation || "-",
       user.status,
       new Date(user.registeredAt).toLocaleDateString(),
@@ -391,14 +400,16 @@ const RegisteredList = () => {
       headers.join(","),
       ...filteredUsers.map((user) =>
         [
-          user.id,
-          `"${user.name}"`,
-          user.email,
-          user.phone,
+          user.id || "-",
+          `"${user.name || "-"}"`,
+          user.email || "-",
+          user.phone || "-",
           `"${user.organisation || ""}"`,
-          user.status,
-          user.backupCode,
-          new Date(user.registeredAt).toLocaleDateString(),
+          user.status || "active",
+          user.backupCode || "-",
+          user.registeredAt
+            ? new Date(user.registeredAt).toLocaleDateString()
+            : "-",
         ].join(",")
       ),
     ].join("\n");
@@ -480,7 +491,7 @@ const RegisteredList = () => {
     if (!user.qrCode) return;
 
     const link = document.createElement("a");
-    link.download = `${user.name.replace(/\s+/g, "_")}_QR_Code.png`;
+    link.download = `${(user.name || "user").replace(/\s+/g, "_")}_QR_Code.png`;
     link.href = user.qrCode;
     document.body.appendChild(link);
     link.click();
@@ -490,9 +501,9 @@ const RegisteredList = () => {
   const generateQRForUser = async (user) => {
     try {
       const qrData = JSON.stringify({
-        id: user.id,
-        name: user.name,
-        email: user.email,
+        id: user.id || "",
+        name: user.name || "",
+        email: user.email || "",
       });
 
       const qrCodeDataURL = await QRCode.toDataURL(qrData, {
@@ -692,20 +703,22 @@ const RegisteredList = () => {
                           className="checkbox"
                         />
                       </td>
-                      <td className="user-id">{user.id}</td>
-                      <td className="user-name">{user.name}</td>
-                      <td className="user-email">{user.email}</td>
-                      <td className="user-phone">{user.phone}</td>
+                      <td className="user-id">{user.id || "-"}</td>
+                      <td className="user-name">{user.name || "-"}</td>
+                      <td className="user-email">{user.email || "-"}</td>
+                      <td className="user-phone">{user.phone || "-"}</td>
                       <td className="user-department">
                         {user.organisation || "-"}
                       </td>
                       <td>
                         <select
-                          value={user.status}
+                          value={user.status || "active"}
                           onChange={(e) =>
                             handleStatusChange(user.id, e.target.value)
                           }
-                          className={`status-select status-${user.status}`}
+                          className={`status-select status-${
+                            user.status || "active"
+                          }`}
                         >
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>

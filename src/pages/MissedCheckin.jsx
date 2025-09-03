@@ -34,16 +34,21 @@ const MissedCheckin = () => {
 
   const filterUsers = () => {
     let filtered = registeredUsers.filter((user) => {
+      // Ensure user exists and has required properties
+      if (!user || typeof user !== "object") return false;
+
       const matchesSearch =
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.id.toLowerCase().includes(searchTerm.toLowerCase());
+        (user.name &&
+          user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.email &&
+          user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.id && user.id.toLowerCase().includes(searchTerm.toLowerCase()));
 
       return matchesSearch;
     });
 
-    // Sort by name
-    filtered.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort by name with null check
+    filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     setFilteredUsers(filtered);
   };
 

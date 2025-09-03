@@ -85,6 +85,7 @@ export const sendWelcomeEmail = async (user) => {
       backup_code: user.backupCode,
       organisation: user.organisation || "Not specified",
       designation: user.designation || "Not specified",
+      phone_number: user.phone || "N/A",
       isaca_id: user.isacaId || "N/A",
       participation_category: user.participationCategory || "Not specified",
       registration_date: new Date(user.registeredAt).toLocaleDateString(),
