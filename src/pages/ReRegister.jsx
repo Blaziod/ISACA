@@ -25,7 +25,6 @@ const ReRegister = () => {
     name: "",
     email: "",
     phone: "",
-    isacaId: "",
     participationCategory: "",
     organisation: "",
     designation: "",
@@ -163,7 +162,6 @@ const ReRegister = () => {
         name: "",
         email: "",
         phone: "",
-        isacaId: "",
         participationCategory: "",
         organisation: "",
         designation: "",
@@ -395,7 +393,6 @@ const ReRegister = () => {
             name: "John Doe",
             email: "john@example.com",
             phone: "08036184466",
-            isacaId: "571458",
             participationCategory: "Physical",
             organisation: "Nigerian Communications Commission",
             designation: "Information Security Manager",
@@ -528,22 +525,6 @@ const ReRegister = () => {
                   {errors.phone && (
                     <span className="error-text">{errors.phone}</span>
                   )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="isacaId" className="form-label">
-                    <FaIdCard />
-                    ISACA ID
-                  </label>
-                  <input
-                    type="text"
-                    id="isacaId"
-                    name="isacaId"
-                    value={formData.isacaId}
-                    onChange={handleInputChange}
-                    className="form-input"
-                    placeholder="Enter ISACA ID"
-                  />
                 </div>
 
                 <div className="form-group">
