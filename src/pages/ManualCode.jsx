@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   FaKeyboard,
   FaCheckCircle,
@@ -20,124 +20,135 @@ const ManualCode = () => {
   const [lastProcessedCode, setLastProcessedCode] = useState(""); // Track last processed code
   const [recentCodes, setRecentCodes] = useState([]);
 
+  const normalizeInput = (input) => {
+    const str = (input || "").trim();
+    if (str.toLowerCase().startsWith("mailto:")) return str.slice(7);
+    return str;
+  };
+
+  const isValidEmail = (s) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test((s || "").trim());
+
+  const isPotentialEmail = (s) => (s || "").includes("@");
+
+  const emailDebounceRef = useRef(null);
+  const requestSeqRef = useRef(0);
+
+  const normalizedForDup = (v) => normalizeInput(v).trim().toLowerCase();
+
+  // optional: clear pending debounce on unmount
+  useEffect(() => {
+    return () => clearTimeout(emailDebounceRef.current);
+  }, []);
+  // -----------------------------------------------------------
+
   const handleCodeChange = (e) => {
     const value = e.target.value;
     setCode(value);
     setError("");
     setSearchResult(null);
 
-    // Simple email detection - no complex parsing
-    if (value.includes("@") && value.includes(".")) {
-      setInputType("email");
-      // Auto-search for exact email match
-      performAutoSearch(value.trim());
-    } else {
-      setInputType("single");
-    }
+    if (isPotentialEmail(value)) setInputType("email");
+    else setInputType("single");
+
+    clearTimeout(emailDebounceRef.current);
+    emailDebounceRef.current = setTimeout(() => {
+      const normalized = normalizeInput(value).trim();
+      if (isValidEmail(normalized)) {
+        performAutoSearch(normalized);
+      }
+    }, 400);
   };
-
-const normalizeInput = (input) => {
-  const str = input.trim();
-
-  // Handle mailto: links
-  if (str.toLowerCase().startsWith("mailto:")) {
-    return str.slice(7); // remove "mailto:"
-  }
-
-  return str;
-};
 
   const handleCodeSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
+  const normalized = normalizedForDup(code);
+  if (!normalized || normalized === lastProcessedCode) return;
 
-    if (!code.trim() || code.trim() === lastProcessedCode) {
-      return;
+  setIsLoading(true);
+  setError("");
+  setSearchResult(null);
+
+  try {
+    const result = await processManualCode(normalized);
+    setSearchResult(result);
+    setLastProcessedCode(normalized);
+    if (result.success) {
+      const newRecentCode = {
+        id: Date.now(),
+        code: normalized,
+        user: result.data.name,
+        action: result.data.action,
+        timestamp: new Date().toISOString(),
+      };
+      setRecentCodes((prev) => [newRecentCode, ...prev.slice(0, 9)]);
+      setTimeout(() => {
+        setCode("");
+        setInputType("single");
+        setLastProcessedCode("");
+      }, 2000);
     }
+  } catch (err) {
+    console.error("Error processing code:", err);
+    setError("Failed to process code. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-    setIsLoading(true);
-    setError("");
-    setSearchResult(null);
+const performAutoSearch = async (raw) => {
+  const normalized = normalizedForDup(raw);
+  if (!normalized || isLoading || normalized === lastProcessedCode) return;
 
-    try {
-      const result = await processManualCode(code.trim());
-      setSearchResult(result);
-      setLastProcessedCode(code.trim());
+  const mySeq = ++requestSeqRef.current;
 
-      if (result.success) {
-        // Add to recent codes
-        const newRecentCode = {
-          id: Date.now(),
-          code: code.trim(),
-          user: result.data.name,
-          action: result.data.action,
-          timestamp: new Date().toISOString(),
-        };
+  setIsLoading(true);
+  setError("");
+  setSearchResult(null);
 
-        const updatedRecentCodes = [newRecentCode, ...recentCodes.slice(0, 9)];
-        setRecentCodes(updatedRecentCodes);
+  try {
+    const result = await processManualCode(normalized);
 
-        // Clear the code input after successful processing
-        setTimeout(() => {
-          setCode("");
-          setInputType("single");
-          setLastProcessedCode("");
-        }, 2000);
-      }
-    } catch (error) {
-      console.error("Error processing code:", error);
+    // If another keystroke triggered a newer search, ignore this result
+    if (mySeq !== requestSeqRef.current) return;
+
+    setSearchResult(result);
+    setLastProcessedCode(normalized);
+
+    if (result.success) {
+      const newRecentCode = {
+        id: Date.now(),
+        code: normalized,
+        user: result.data.name,
+        action: result.data.action,
+        timestamp: new Date().toISOString(),
+      };
+      setRecentCodes((prev) => [newRecentCode, ...prev.slice(0, 9)]);
+
+      setAutoClearCountdown(2);
+      const countdown = setInterval(() => {
+        setAutoClearCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdown);
+            setCode("");
+            setInputType("single");
+            setLastProcessedCode("");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+  } catch (err) {
+    // also ignore stale errors
+    if (mySeq === requestSeqRef.current) {
+      console.error("Error in auto-search:", err);
       setError("Failed to process code. Please try again.");
     }
-
-    setIsLoading(false);
-  };
-
-  const performAutoSearch = async (searchValue) => {
-    if (!searchValue || isLoading || searchValue === lastProcessedCode) return;
-
-    setIsLoading(true);
-    setError("");
-    setSearchResult(null);
-
-    try {
-      const result = await processManualCode(searchValue);
-      setSearchResult(result);
-      setLastProcessedCode(searchValue);
-
-      if (result.success) {
-        // Add to recent codes
-        const newRecentCode = {
-          id: Date.now(),
-          code: searchValue,
-          user: result.data.name,
-          action: result.data.action,
-          timestamp: new Date().toISOString(),
-        };
-
-        const updatedRecentCodes = [newRecentCode, ...recentCodes.slice(0, 9)];
-        setRecentCodes(updatedRecentCodes);
-
-        // Clear the code input after successful auto-search
-        setAutoClearCountdown(2);
-        const countdownInterval = setInterval(() => {
-          setAutoClearCountdown((prev) => {
-            if (prev <= 1) {
-              clearInterval(countdownInterval);
-              setCode("");
-              setInputType("single");
-              setLastProcessedCode("");
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
-    } catch (error) {
-      console.error("Error in auto-search:", error);
-      setError("Failed to process code. Please try again.");
-    }
-
-    setIsLoading(false);
-  };
+  } finally {
+    if (mySeq === requestSeqRef.current) setIsLoading(false);
+  }
+};
 
   const processManualCode = async (inputCode) => {
     // Get registered users
@@ -285,7 +296,7 @@ const user = registeredUsers.find(
                   <button
                     type="submit"
                     className="search-btn"
-                    disabled={isLoading || !code.trim()}
+                    disabled={isLoading || !normalizeInput(code).trim()}
                     title="Search for exact match"
                   >
                     {isLoading ? <div className="loading"></div> : <FaSearch />}
