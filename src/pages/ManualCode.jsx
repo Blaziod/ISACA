@@ -36,6 +36,17 @@ const ManualCode = () => {
     }
   };
 
+const normalizeInput = (input) => {
+  const str = input.trim();
+
+  // Handle mailto: links
+  if (str.toLowerCase().startsWith("mailto:")) {
+    return str.slice(7); // remove "mailto:"
+  }
+
+  return str;
+};
+
   const handleCodeSubmit = async (e) => {
     e.preventDefault();
 
@@ -135,17 +146,17 @@ const ManualCode = () => {
       []
     );
 
-    const searchValue = inputCode.trim();
+    let searchValue = normalizeInput(inputCode);
 
-    // Find user by exact match only - no fuzzy matching
-    let user = registeredUsers.find(
-      (u) =>
-        u.email === searchValue ||
-        u.id === searchValue ||
-        u.phone === searchValue ||
-        u.backupCode === searchValue ||
-        u.name?.toLowerCase() === searchValue.toLowerCase()
-    );
+// Case-insensitive email check
+const user = registeredUsers.find(
+  (u) =>
+    (u.email && u.email.toLowerCase() === searchValue.toLowerCase()) ||
+    u.id === searchValue ||
+    u.phone === searchValue ||
+    u.backupCode === searchValue ||
+    (u.name && u.name.toLowerCase() === searchValue.toLowerCase())
+);
 
     if (!user) {
       return {
