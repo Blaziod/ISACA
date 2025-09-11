@@ -31,7 +31,6 @@ const Navigation = ({ storageStatus }) => {
     { path: "/scan", icon: FaQrcode, label: "Scan" },
     { path: "/code", icon: FaKeyboard, label: "Code" },
     { path: "/register", icon: FaUserPlus, label: "Register" },
-    { path: "/re-register", icon: FaUserPlus, label: "Re-register" },
     { path: "/missed-checkin", icon: FaClock, label: "Misd CN" },
     { path: "/registered-list", icon: FaUsers, label: "Reg List" },
     { path: "/scan-in-list", icon: FaSignInAlt, label: "ScanIn List" },

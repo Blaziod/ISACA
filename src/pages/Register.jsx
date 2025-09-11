@@ -135,9 +135,7 @@ const Register = () => {
         `BAK${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       // Generate QR code data URL
-      const qrData = JSON.stringify({
-        email: formData.email,
-      });
+      const qrData = formData.email; // Only store email, no JSON
 
       const qrCodeDataURL = await QRCode.toDataURL(qrData, {
         width: 200,
@@ -320,12 +318,6 @@ const Register = () => {
           ) {
             user.phone = value;
           } else if (
-            header === "isaca id" ||
-            header === "isacaid" ||
-            header.includes("isaca")
-          ) {
-            user.isacaId = value;
-          } else if (
             header === "participation category" ||
             header.includes("participation") ||
             header.includes("category")
@@ -393,11 +385,7 @@ const Register = () => {
           `BAK${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
         // Generate QR code
-        const qrData = JSON.stringify({
-          id: userId,
-          name: userData.name,
-          email: userData.email,
-        });
+        const qrData = userData.email; // Only store email, no JSON
 
         let qrCodeDataURL = "";
         try {
@@ -494,7 +482,7 @@ const Register = () => {
 
     if (format === "csv") {
       content =
-        "S/N,Name,Phone Number,Email,ISACA ID,Participation Category,Organisation,Designation\n1,John Doe,08036184466,john@example.com,571458,Physical,Nigerian Communications Commission,Information Security Manager";
+        "S/N,Name,Phone Number,Email,Participation Category,Organisation,Designation\n1,John Doe,08036184466,john@example.com,571458,Physical,Nigerian Communications Commission,Information Security Manager";
       filename = "bulk_registration_template.csv";
       mimeType = "text/csv";
     } else {
@@ -504,7 +492,7 @@ const Register = () => {
             name: "John Doe",
             email: "john@example.com",
             phone: "08036184466",
-            isacaId: "571458",
+
             participationCategory: "Physical",
             organisation: "Nigerian Communications Commission",
             designation: "Information Security Manager",
@@ -795,10 +783,7 @@ const Register = () => {
                     <p>
                       <strong>Email:</strong> {lastGeneratedUser.email}
                     </p>
-                    <p>
-                      <strong>ISACA ID:</strong>{" "}
-                      {lastGeneratedUser.isacaId || "N/A"}
-                    </p>
+
                     <p>
                       <strong>Organisation:</strong>{" "}
                       {lastGeneratedUser.organisation || "N/A"}
@@ -855,7 +840,7 @@ const Register = () => {
               <div className="expected-format">
                 <h4>Expected CSV Format:</h4>
                 <code>
-                  S/N,Name,Phone Number,Email,ISACA ID,Participation
+                  S/N,Name,Phone Number,Email, Participation
                   Category,Organisation,Designation
                 </code>
                 <p>
@@ -910,7 +895,7 @@ const Register = () => {
                           <th>Name</th>
                           <th>Email</th>
                           <th>Phone</th>
-                          <th>ISACA ID</th>
+
                           <th>Category</th>
                           <th>Organisation</th>
                           <th>Designation</th>
@@ -922,7 +907,7 @@ const Register = () => {
                             <td>{user.name}</td>
                             <td>{user.email}</td>
                             <td>{user.phone}</td>
-                            <td>{user.isacaId || "-"}</td>
+
                             <td>{user.participationCategory || "-"}</td>
                             <td>{user.organisation || "-"}</td>
                             <td>{user.designation || "-"}</td>

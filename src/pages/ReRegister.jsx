@@ -119,11 +119,7 @@ const ReRegister = () => {
         `BAK${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       // Generate QR code data URL
-      const qrData = JSON.stringify({
-        id: userId,
-        name: formData.name,
-        email: formData.email,
-      });
+      const qrData = formData.email; // Only store email, no JSON
 
       const qrCodeDataURL = await QRCode.toDataURL(qrData, {
         width: 200,
@@ -318,11 +314,7 @@ const ReRegister = () => {
             `BAK${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
           // Generate QR code
-          const qrData = JSON.stringify({
-            id: userId,
-            name: userData.name,
-            email: userData.email,
-          });
+          const qrData = userData.email; // Only store email, no JSON
 
           const qrCodeDataURL = await QRCode.toDataURL(qrData, {
             width: 200,
@@ -383,7 +375,7 @@ const ReRegister = () => {
 
     if (format === "csv") {
       content =
-        "S/N,Name,Phone Number,Email,ISACA ID,Participation Category,Organisation,Designation\n1,John Doe,08036184466,john@example.com,571458,Physical,Nigerian Communications Commission,Information Security Manager";
+        "S/N,Name,Phone Number,Email, Participation Category,Organisation,Designation\n1,John Doe,08036184466,john@example.com,571458,Physical,Nigerian Communications Commission,Information Security Manager";
       filename = "bulk_registration_template.csv";
       mimeType = "text/csv";
     } else {

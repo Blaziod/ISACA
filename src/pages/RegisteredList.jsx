@@ -500,11 +500,7 @@ const RegisteredList = () => {
 
   const generateQRForUser = async (user) => {
     try {
-      const qrData = JSON.stringify({
-        id: user.id || "",
-        name: user.name || "",
-        email: user.email || "",
-      });
+      const qrData = user.email; // Only store email, no JSON
 
       const qrCodeDataURL = await QRCode.toDataURL(qrData, {
         width: 200,
@@ -912,21 +908,6 @@ const RegisteredList = () => {
                   {editErrors.phone && (
                     <span className="error-text">{editErrors.phone}</span>
                   )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="edit-isacaId" className="form-label">
-                    🆔 ISACA ID
-                  </label>
-                  <input
-                    type="text"
-                    id="edit-isacaId"
-                    name="isacaId"
-                    value={editFormData.isacaId || ""}
-                    onChange={handleEditInputChange}
-                    className="form-input"
-                    placeholder="Enter ISACA ID"
-                  />
                 </div>
 
                 <div className="form-group">
