@@ -4,8 +4,8 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   FaKeyboard,
   FaUsers,
-  FaSignInAlt,
-  FaSignOutAlt,
+  // FaSignInAlt,
+  // FaSignOutAlt,
   FaBars,
   FaTimes,
   FaTachometerAlt,
@@ -24,8 +24,8 @@ const Navigation = () => {
     { path: "/scan-in", icon: FaKeyboard, label: "ScanIn" },
     { path: "/scan-out", icon: FaKeyboard, label: "ScanOut" },
     { path: "/registered-list", icon: FaUsers, label: "Reg List" },
-    { path: "/scan-in-list", icon: FaSignInAlt, label: "ScanIn List" },
-    { path: "/scan-out-list", icon: FaSignOutAlt, label: "ScanOut List" },
+    // { path: "/scan-in-list", icon: FaSignInAlt, label: "ScanIn List" },
+    // { path: "/scan-out-list", icon: FaSignOutAlt, label: "ScanOut List" },
     { path: "/data-management", icon: FaDatabase, label: "Data Mgmt" },
   ];
 
