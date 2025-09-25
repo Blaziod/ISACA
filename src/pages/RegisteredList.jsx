@@ -33,10 +33,13 @@ const RegisteredList = () => {
       setLoading(true);
       setError("");
       try {
-        const { data } = await api.get(`/event/events/${eventId}/attendees`, {
-          // params,
-          // signal: controller.signal,
-        });
+        const { data } = await api.get(
+          `/event/events/${eventId}/attendees?limit=1000&offset=0`,
+          {
+            // params,
+            // signal: controller.signal,
+          }
+        );
         setRaw(Array.isArray(data) ? data : []);
       } catch (e) {
         const code = e.response?.status
