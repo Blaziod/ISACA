@@ -3,9 +3,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  FaQrcode,
   FaKeyboard,
-  FaUserPlus,
   FaUsers,
   FaSignInAlt,
   FaSignOutAlt,
@@ -17,7 +15,6 @@ import {
   FaExclamationTriangle,
   FaPowerOff,
   FaDatabase,
-  FaClock,
 } from "react-icons/fa";
 import "./Navigation.css";
 
@@ -28,10 +25,8 @@ const Navigation = ({ storageStatus }) => {
 
   const navItems = [
     { path: "/", icon: FaTachometerAlt, label: "Dashboard" },
-    { path: "/scan", icon: FaQrcode, label: "Scan" },
-    { path: "/code", icon: FaKeyboard, label: "Code" },
-    { path: "/register", icon: FaUserPlus, label: "Register" },
-    { path: "/missed-checkin", icon: FaClock, label: "Misd CN" },
+    { path: "/scan-in", icon: FaKeyboard, label: "ScanIn" },
+    { path: "/scan-out", icon: FaKeyboard, label: "ScanOut" },
     { path: "/registered-list", icon: FaUsers, label: "Reg List" },
     { path: "/scan-in-list", icon: FaSignInAlt, label: "ScanIn List" },
     { path: "/scan-out-list", icon: FaSignOutAlt, label: "ScanOut List" },

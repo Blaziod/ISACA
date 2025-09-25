@@ -1,554 +1,332 @@
-import { useState, useEffect } from "react";
-import QRCode from "qrcode";
-import {
-  sendWelcomeEmail,
-  validateEmailConfig,
-  initEmailJS,
-} from "../utils/emailService";
-import { storage, STORAGE_KEYS } from "../utils/storage";
+/* eslint-disable react/prop-types */
+import { useEffect, useMemo, useState } from "react";
 import {
   FaUsers,
   FaSearch,
   FaDownload,
   FaPrint,
-  FaEdit,
-  FaTrash,
-  FaUserCheck,
-  FaUserTimes,
-  FaFilter,
   FaSortAlphaDown,
   FaSortAlphaUp,
-  FaQrcode,
-  FaEnvelope,
 } from "react-icons/fa";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import "./RegisteredList.css";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 const RegisteredList = () => {
-  const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [sortOrder, setSortOrder] = useState("asc");
-  const [sortField, setSortField] = useState("name");
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [userToEdit, setUserToEdit] = useState(null);
-  const [editFormData, setEditFormData] = useState({});
-  const [editErrors, setEditErrors] = useState({});
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isEmailConfigured, setIsEmailConfigured] = useState(false);
-
+  const api = axios.create({
+    baseURL: "https://id-code-432903898833.europe-west1.run.app/api/v1",
+    timeout: 20000,
+  });
+  const apiUrl = "https://id-code-432903898833.europe-west1.run.app/api/v1/";
+  const [raw, setRaw] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("all"); // all | registered | checked_out | checked_in
+  const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState("name"); // name | email | grade_level | checked_in_at
+  const [sortOrder, setSortOrder] = useState("asc"); // asc | desc
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const eventId = "7edc69a2-fa32-43fc-aa9f-d026f434a24e";
   useEffect(() => {
-    loadUsers();
-    // Initialize EmailJS
-    initEmailJS();
-    const emailConfig = validateEmailConfig();
-    setIsEmailConfigured(emailConfig.isConfigured);
-  }, []);
+    const controller = new AbortController();
 
-  useEffect(() => {
-    filterAndSortUsers();
+    const fetchUsers = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const { data } = await api.get(`/event/events/${eventId}/attendees`, {
+          // params,
+          // signal: controller.signal,
+        });
+        setRaw(Array.isArray(data) ? data : []);
+      } catch (e) {
+        const code = e.response?.status
+          ? `HTTP ${e.response.status}`
+          : e.code || "ERR_NETWORK";
+        if (axios.isCancel?.(e)) return; // unmount
+        setError(`Failed to load registrations. ${code}`);
+        setRaw([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users, searchTerm, filterStatus, sortOrder, sortField]);
+  }, [eventId]);
 
-  const loadUsers = async () => {
-    try {
-      await storage.initialize();
-      const registeredUsers = await storage.get(STORAGE_KEYS.REGISTERED_USERS);
-      setUsers(registeredUsers);
-    } catch (error) {
-      console.error("Error loading users:", error);
-      // Fallback to empty array
-      setUsers([]);
-    }
-  };
-
-  const filterAndSortUsers = () => {
-    let filtered = users.filter((user) => {
-      // Ensure user exists and has required properties
-      if (!user || typeof user !== "object") return false;
-
-      const matchesSearch =
-        (user.name &&
-          user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (user.email &&
-          user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (user.phone && user.phone.includes(searchTerm)) ||
-        (user.id && user.id.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      const matchesFilter =
-        filterStatus === "all" || user.status === filterStatus;
-
-      return matchesSearch && matchesFilter;
-    });
-
-    // Sort users
-    filtered.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-
-      // Handle undefined/null values
-      if (aValue === undefined || aValue === null) aValue = "";
-      if (bValue === undefined || bValue === null) bValue = "";
-
-      if (sortField === "registeredAt") {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
-      }
-
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-
-      if (sortOrder === "asc") {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-
-    setFilteredUsers(filtered);
-  };
-
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-  };
+  // Filter + search
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return raw
+      .filter((u) => {
+        if (
+          statusFilter !== "all" &&
+          (u.status || "").toLowerCase() !== statusFilter
+        ) {
+          // Special case: treat "checked_in" if checked_in_at exists and not checked_out_at
+          if (statusFilter === "checked_in") {
+            const inOnly = !!u.checked_in_at && !u.checked_out_at;
+            return inOnly;
+          }
+          return false;
+        }
+        if (!s) return true;
+        return (
+          (u.name || "").toLowerCase().includes(s) ||
+          (u.email || "").toLowerCase().includes(s) ||
+          (u.grade_level || "").toLowerCase().includes(s) ||
+          (u.remark || "").toLowerCase().includes(s) ||
+          (u.id || "").toLowerCase().includes(s)
+        );
+      })
+      .sort((a, b) => {
+        let av = a[sortField];
+        let bv = b[sortField];
+        if (sortField.includes("_at")) {
+          av = av ? new Date(av).getTime() : 0;
+          bv = bv ? new Date(bv).getTime() : 0;
+        } else {
+          av = (av ?? "").toString().toLowerCase();
+          bv = (bv ?? "").toString().toLowerCase();
+        }
+        if (av < bv) return sortOrder === "asc" ? -1 : 1;
+        if (av > bv) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+  }, [raw, statusFilter, search, sortField, sortOrder]);
 
   const handleSort = (field) => {
     if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
     } else {
       setSortField(field);
       setSortOrder("asc");
     }
   };
 
-  const handleSelectUser = (userId) => {
-    setSelectedUsers((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedUsers.length === filteredUsers.length) {
-      setSelectedUsers([]);
-    } else {
-      setSelectedUsers(filteredUsers.map((user) => user.id));
-    }
-  };
-
-  const handleDeleteUser = (user) => {
-    setUserToDelete(user);
-    setShowDeleteModal(true);
-  };
-
-  const handleEditUser = (user) => {
-    setUserToEdit(user);
-    setEditFormData({
-      name: user.name || "",
-      email: user.email || "",
-      phone: user.phone || "",
-      isacaId: user.isacaId || "",
-      participationCategory: user.participationCategory || "",
-      organisation: user.organisation || "",
-      designation: user.designation || "",
-      backupCode: user.backupCode || "",
-      notes: user.notes || "",
-    });
-    setEditErrors({});
-    setShowEditModal(true);
-  };
-
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Clear error when user starts typing
-    if (editErrors[name]) {
-      setEditErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
-    }
-  };
-
-  const validateEditForm = () => {
-    const newErrors = {};
-
-    if (!editFormData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
-
-    if (!editFormData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(editFormData.email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    if (!editFormData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^[+]?[\d\s\-()]+$/.test(editFormData.phone)) {
-      newErrors.phone = "Please enter a valid phone number";
-    }
-
-    // Check for duplicate email/phone (excluding current user)
-    const emailExists = users.some(
-      (u) => u.id !== userToEdit.id && u.email === editFormData.email.trim()
-    );
-    const phoneExists = users.some(
-      (u) => u.id !== userToEdit.id && u.phone === editFormData.phone.trim()
-    );
-
-    if (emailExists) {
-      newErrors.email = "Email already exists for another user";
-    }
-    if (phoneExists) {
-      newErrors.phone = "Phone number already exists for another user";
-    }
-
-    setEditErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleUpdateUser = async () => {
-    if (!validateEditForm()) {
-      return;
-    }
-
-    setIsUpdating(true);
-
-    try {
-      // Create updated user object
-      const updatedUser = {
-        ...userToEdit,
-        ...editFormData,
-        email: editFormData.email.trim(),
-        phone: editFormData.phone.trim(),
-        name: editFormData.name.trim(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Update users list
-      const updatedUsers = users.map((user) =>
-        user.id === userToEdit.id ? updatedUser : user
-      );
-
-      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
-      setUsers(updatedUsers);
-
-      // Update scan lists if name or email changed
-      if (
-        userToEdit.name !== updatedUser.name ||
-        userToEdit.email !== updatedUser.email
-      ) {
-        const [scanInList, scanOutList] = await Promise.all([
-          storage.get(STORAGE_KEYS.SCAN_IN_LIST, []),
-          storage.get(STORAGE_KEYS.SCAN_OUT_LIST, []),
-        ]);
-
-        // Update scan-in list
-        const updatedScanInList = scanInList.map((entry) =>
-          entry.userId === userToEdit.id
-            ? { ...entry, name: updatedUser.name, email: updatedUser.email }
-            : entry
-        );
-
-        // Update scan-out list
-        const updatedScanOutList = scanOutList.map((entry) =>
-          entry.userId === userToEdit.id
-            ? { ...entry, name: updatedUser.name, email: updatedUser.email }
-            : entry
-        );
-
-        await Promise.all([
-          storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList),
-          storage.set(STORAGE_KEYS.SCAN_OUT_LIST, updatedScanOutList),
-        ]);
-      }
-
-      // Close modal and reset state
-      setShowEditModal(false);
-      setUserToEdit(null);
-      setEditFormData({});
-      setEditErrors({});
-    } catch (error) {
-      console.error("Error updating user:", error);
-      setEditErrors({
-        submit: "Failed to update user. Please try again.",
-      });
-    }
-
-    setIsUpdating(false);
-  };
-
-  const cancelEdit = () => {
-    setShowEditModal(false);
-    setUserToEdit(null);
-    setEditFormData({});
-    setEditErrors({});
-  };
-
-  const confirmDelete = async () => {
-    if (userToDelete) {
-      const updatedUsers = users.filter((user) => user.id !== userToDelete.id);
-      setUsers(updatedUsers);
-      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
-
-      // Also remove from scan lists
-      const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST);
-      const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST);
-
-      const updatedScanInList = scanInList.filter(
-        (entry) => entry.userId !== userToDelete.id
-      );
-      const updatedScanOutList = scanOutList.filter(
-        (entry) => entry.userId !== userToDelete.id
-      );
-
-      await storage.set(STORAGE_KEYS.SCAN_IN_LIST, updatedScanInList);
-      await storage.set(STORAGE_KEYS.SCAN_OUT_LIST, updatedScanOutList);
-    }
-
-    setShowDeleteModal(false);
-    setUserToDelete(null);
-  };
-
-  const handleStatusChange = async (userId, newStatus) => {
-    const updatedUsers = users.map((user) =>
-      user.id === userId ? { ...user, status: newStatus } : user
-    );
-    setUsers(updatedUsers);
-    await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
-  };
-
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-
-    // Title
-    doc.setFontSize(20);
-    doc.setFont(undefined, "bold");
-    doc.text("Registered Users Report", pageWidth / 2, 20, { align: "center" });
-
-    // Date
-    doc.setFontSize(12);
-    doc.setFont(undefined, "normal");
-    doc.text(
-      `Generated: ${new Date().toLocaleDateString()}`,
-      pageWidth / 2,
-      30,
-      { align: "center" }
-    );
-    doc.text(`Total Users: ${filteredUsers.length}`, pageWidth / 2, 38, {
-      align: "center",
-    });
-
-    // Table
-    const tableData = filteredUsers.map((user) => [
-      user.id || "-",
-      user.name || "-",
-      user.email || "-",
-      user.phone || "-",
-      user.organisation || "-",
-      user.status,
-      new Date(user.registeredAt).toLocaleDateString(),
-    ]);
-
-    doc.autoTable({
-      head: [
-        [
-          "ID",
-          "Name",
-          "Email",
-          "Phone",
-          "Organisation",
-          "Status",
-          "Registered",
-        ],
-      ],
-      body: tableData,
-      startY: 50,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [76, 175, 80] },
-    });
-
-    doc.save("registered-users.pdf");
-  };
-
-  const exportToCSV = () => {
+  const exportCSV = () => {
     const headers = [
-      "ID",
-      "Name",
-      "Email",
-      "Phone",
-      "Department",
-      "Status",
-      "Backup Code",
-      "Registered Date",
+      "id",
+      "name",
+      "email",
+      "grade_level",
+      "remark",
+      "status",
+      "checked_in_at",
+      "checked_out_at",
+      "event_id",
+      "qrcode",
+      "picture_url",
     ];
-    const csvData = [
-      headers.join(","),
-      ...filteredUsers.map((user) =>
-        [
-          user.id || "-",
-          `"${user.name || "-"}"`,
-          user.email || "-",
-          user.phone || "-",
-          `"${user.organisation || ""}"`,
-          user.status || "active",
-          user.backupCode || "-",
-          user.registeredAt
-            ? new Date(user.registeredAt).toLocaleDateString()
-            : "-",
-        ].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvData], { type: "text/csv" });
+    const rows = filtered.map((u) =>
+      headers
+        .map((h) => {
+          const v = u[h] ?? "";
+          const cell =
+            typeof v === "string" ? v.replace(/"/g, '""') : String(v);
+          return `"${cell}"`;
+        })
+        .join(",")
+    );
+    const blob = new Blob([[headers.join(","), ...rows].join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "registered-users.csv";
+    a.download = "registrations.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    const printContent = `
+  const printTable = () => {
+    const win = window.open("", "_blank");
+    const html = `
       <html>
         <head>
-          <title>Registered Users Report</title>
+          <title>Registrations</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-            .info { font-size: 14px; color: #666; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #4caf50; color: white; }
-            tr:nth-child(even) { background-color: #f2f2f2; }
-            .status-active { color: #4caf50; font-weight: bold; }
-            .status-inactive { color: #f44336; font-weight: bold; }
+            h1 { margin: 0 0 8px; }
+            .meta { color: #666; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+            th { background: #4caf50; color: #fff; }
+            tr:nth-child(even){ background: #f7f7f7; }
+            img { height: 48px; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="title">Registered Users Report</div>
-            <div class="info">Generated: ${new Date().toLocaleDateString()}</div>
-            <div class="info">Total Users: ${filteredUsers.length}</div>
-          </div>
+          <h1>Registrations</h1>
+          <div class="meta">Generated: ${new Date().toLocaleString()} • Total: ${
+      filtered.length
+    }</div>
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Organisation</th>
-                <th>Status</th>
-                <th>Registered</th>
+                <th>ID</th><th>Name</th><th>Email</th><th>Grade</th><th>Remark</th>
+                <th>Status</th><th>Checked In</th><th>Checked Out</th><th>QR</th>
               </tr>
             </thead>
             <tbody>
-              ${filteredUsers
-                .map(
-                  (user) => `
-                <tr>
-                  <td>${user.id}</td>
-                  <td>${user.name}</td>
-                  <td>${user.email}</td>
-                  <td>${user.phone}</td>
-                  <td>${user.organisation || "-"}</td>
-                  <td class="status-${user.status}">${user.status}</td>
-                  <td>${new Date(user.registeredAt).toLocaleDateString()}</td>
-                </tr>
-              `
-                )
+              ${filtered
+                .map((u) => {
+                  const qr = u.qrcode
+                    ? `<img src="${u.qrcode}" alt="QR" />`
+                    : "";
+                  return `<tr>
+                    <td>${u.id || "-"}</td>
+                    <td>${u.name || "-"}</td>
+                    <td>${u.email || "-"}</td>
+                    <td>${u.grade_level || "-"}</td>
+                    <td>${u.remark || "-"}</td>
+                    <td>${u.status || "-"}</td>
+                    <td>${
+                      u.checked_in_at
+                        ? new Date(u.checked_in_at).toLocaleString()
+                        : "-"
+                    }</td>
+                    <td>${
+                      u.checked_out_at
+                        ? new Date(u.checked_out_at).toLocaleString()
+                        : "-"
+                    }</td>
+                    <td>${qr}</td>
+                  </tr>`;
+                })
                 .join("")}
             </tbody>
           </table>
         </body>
-      </html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.print();
+      </html>`;
+    win.document.write(html);
+    win.document.close();
+    win.print();
   };
 
-  const downloadUserQR = (user) => {
-    if (!user.qrCode) return;
+  function DownloadQrButton({ raw }) {
+    const handleDownload = async () => {
+      try {
+        const response = await axios.get(
+          `${apiUrl}event/attendees/${raw.id}/qrcode`,
+          {
+            responseType: "blob", // This should be in the config object, not as a second parameter
+          }
+        );
 
-    const link = document.createElement("a");
-    link.download = `${(user.name || "user").replace(/\s+/g, "_")}_QR_Code.png`;
-    link.href = user.qrCode;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+        // Create blob with correct MIME type
+        const blob = new Blob([response.data], { type: "image/png" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
 
-  const generateQRForUser = async (user) => {
-    try {
-      const qrData = user.email; // Only store email, no JSON
+        const contentDisposition = response.headers["content-disposition"];
+        let fileName = `${raw?.name || raw?.full_name || "Access"} Qrcode.png`; // Use 'name' or 'full_name' since that's what you have in your data
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?(.+)"?/);
+          if (match && match[1]) fileName = match[1];
+        }
 
-      const qrCodeDataURL = await QRCode.toDataURL(qrData, {
-        width: 200,
-        margin: 2,
-        color: {
-          dark: "#000000",
-          light: "#FFFFFF",
-        },
-      });
+        link.href = url;
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
 
-      // Update user with QR code
-      const updatedUsers = users.map((u) =>
-        u.id === user.id ? { ...u, qrCode: qrCodeDataURL } : u
-      );
+        toast.success("QR Code downloaded successfully!", {
+          position: "top-center",
+          autoClose: 2000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          style: {
+            backgroundColor: "#4CAF50",
+            color: "#ffffff",
+            borderRadius: "8px",
+            padding: "16px",
+            fontSize: "14px",
+            fontWeight: "bold",
+          },
+        });
+      } catch (error) {
+        let errorMessage = "An unexpected error occurred. Please try again.";
+        const toastOptions = {
+          position: "top-center",
+          autoClose: 3000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          style: {
+            backgroundColor: "#D32F2F",
+            color: "#ffffff",
+            borderRadius: "8px",
+            padding: "16px",
+            fontSize: "16px",
+            fontWeight: "bold",
+          },
+        };
 
-      setUsers(updatedUsers);
-      await storage.set(STORAGE_KEYS.REGISTERED_USERS, updatedUsers);
-    } catch (error) {
-      console.error("Error generating QR code:", error);
-    }
-  };
+        if (error.response && error.response.status === 403) {
+          errorMessage =
+            "Company not yet verified. Please complete company verification.";
+        } else if (error.response && error.response.data) {
+          const responseData = error.response.data;
 
-  const sendEmailToUser = async (user) => {
-    if (!isEmailConfigured) {
-      alert(
-        "Email service is not configured. Please check EMAIL_SETUP.md for instructions."
-      );
-      return;
-    }
+          if (responseData.detail) {
+            errorMessage = `${
+              responseData.detail.charAt(0).toUpperCase() +
+              responseData.detail.slice(1)
+            }`;
+          } else if (responseData.message) {
+            errorMessage = responseData.message;
+          } else {
+            errorMessage = `${responseData.detail} Please try again.`;
+          }
+        } else if (error.request) {
+          errorMessage =
+            "Sorry something went wrong, our engineers are working on it! Please try again later.";
+        } else {
+          errorMessage = "An error occurred while preparing the request.";
+        }
 
-    if (!user.qrCode) {
-      alert("User does not have a QR code. Please generate one first.");
-      return;
-    }
-
-    try {
-      const result = await sendWelcomeEmail(user);
-      if (result.success) {
-        alert(`Welcome email sent successfully to ${user.name}!`);
-      } else {
-        alert(`Failed to send email: ${result.message}`);
+        toast.error(errorMessage, toastOptions);
       }
-    } catch (error) {
-      alert("Failed to send email. Please try again.");
-      console.error("Email sending error:", error);
-    }
-  };
+    };
 
+    return (
+      <button
+        style={{
+          height: "40px", // Increased height for better UX
+          border: "1px solid #D1D5DB",
+          backgroundColor: "#093",
+          color: "#fff",
+          borderRadius: "7px",
+          width: "100%",
+          fontSize: "14px",
+          fontWeight: "bold",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+        }}
+        onClick={handleDownload}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 16L7 11H10V4H14V11H17L12 16ZM5 18V20H19V18H5Z"
+            fill="currentColor"
+          />
+        </svg>
+        Download QR Code
+      </button>
+    );
+  }
   return (
     <div className="registered-list fade-in">
       <div className="container">
@@ -558,24 +336,21 @@ const RegisteredList = () => {
             <div>
               <h1 className="list-title">Registered Users</h1>
               <p className="list-subtitle">
-                Manage and view all registered users ({filteredUsers.length} of{" "}
-                {users.length})
+                {loading
+                  ? "Loading…"
+                  : error
+                  ? "Error"
+                  : `${filtered.length} of ${raw.length}`}
               </p>
             </div>
           </div>
 
           <div className="header-actions">
-            <button className="btn btn-secondary" onClick={handlePrint}>
-              <FaPrint />
-              Print
+            <button className="btn btn-secondary" onClick={printTable}>
+              <FaPrint /> Print
             </button>
-            <button className="btn btn-primary" onClick={exportToPDF}>
-              <FaDownload />
-              PDF
-            </button>
-            <button className="btn btn-success" onClick={exportToCSV}>
-              <FaDownload />
-              CSV
+            <button className="btn btn-success" onClick={exportCSV}>
+              <FaDownload /> CSV
             </button>
           </div>
         </div>
@@ -586,9 +361,9 @@ const RegisteredList = () => {
               <FaSearch className="search-icon" />
               <input
                 type="text"
-                placeholder="Search by name, email, phone, or ID..."
-                value={searchTerm}
-                onChange={handleSearch}
+                placeholder="Search name, email, grade, remark, ID…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="search-input"
               />
             </div>
@@ -596,29 +371,36 @@ const RegisteredList = () => {
 
           <div className="filter-section">
             <div className="filter-group">
-              <FaFilter className="filter-icon" />
               <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className="filter-select"
               >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="all">All</option>
+                <option value="registered">Registered</option>
+                <option value="checked_in">Checked In</option>
+                <option value="checked_out">Checked Out</option>
               </select>
             </div>
           </div>
         </div>
 
         <div className="table-section">
-          {filteredUsers.length === 0 ? (
+          {error ? (
             <div className="empty-state">
-              <FaUsers className="empty-icon" />
+              <h3>Failed to load registrations</h3>
+            </div>
+          ) : loading ? (
+            <div className="empty-state">
+              <h3>Loading…</h3>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="empty-state">
               <h3>No users found</h3>
               <p>
-                {users.length === 0
-                  ? "No users have been registered yet."
-                  : "No users match your search criteria."}
+                {raw.length === 0
+                  ? "No data from API."
+                  : "No matches for your query."}
               </p>
             </div>
           ) : (
@@ -626,158 +408,90 @@ const RegisteredList = () => {
               <table className="users-table">
                 <thead>
                   <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.length === filteredUsers.length}
-                        onChange={handleSelectAll}
-                        className="checkbox"
-                      />
-                    </th>
                     <th className="sortable" onClick={() => handleSort("id")}>
-                      ID
-                      {sortField === "id" &&
-                        (sortOrder === "asc" ? (
+                      ID{" "}
+                      {sortField === "id" ? (
+                        sortOrder === "asc" ? (
                           <FaSortAlphaDown />
                         ) : (
                           <FaSortAlphaUp />
-                        ))}
+                        )
+                      ) : null}
                     </th>
                     <th className="sortable" onClick={() => handleSort("name")}>
-                      Name
-                      {sortField === "name" &&
-                        (sortOrder === "asc" ? (
+                      Name{" "}
+                      {sortField === "name" ? (
+                        sortOrder === "asc" ? (
                           <FaSortAlphaDown />
                         ) : (
                           <FaSortAlphaUp />
-                        ))}
+                        )
+                      ) : null}
                     </th>
                     <th
                       className="sortable"
                       onClick={() => handleSort("email")}
                     >
-                      Email
-                      {sortField === "email" &&
-                        (sortOrder === "asc" ? (
+                      Email{" "}
+                      {sortField === "email" ? (
+                        sortOrder === "asc" ? (
                           <FaSortAlphaDown />
                         ) : (
                           <FaSortAlphaUp />
-                        ))}
+                        )
+                      ) : null}
                     </th>
-                    <th>Phone</th>
-                    <th>Organisation</th>
-                    <th>Status</th>
-                    <th>QR Code</th>
                     <th
                       className="sortable"
-                      onClick={() => handleSort("registeredAt")}
+                      onClick={() => handleSort("grade_level")}
                     >
-                      Registered
-                      {sortField === "registeredAt" &&
-                        (sortOrder === "asc" ? (
+                      Grade{" "}
+                      {sortField === "grade_level" ? (
+                        sortOrder === "asc" ? (
                           <FaSortAlphaDown />
                         ) : (
                           <FaSortAlphaUp />
-                        ))}
+                        )
+                      ) : null}
                     </th>
-                    <th>Actions</th>
+                    <th>Remark</th>
+                    <th
+                      className="sortable"
+                      onClick={() => handleSort("checked_in_at")}
+                    >
+                      Checked In{" "}
+                      {sortField === "checked_in_at" ? (
+                        sortOrder === "asc" ? (
+                          <FaSortAlphaDown />
+                        ) : (
+                          <FaSortAlphaUp />
+                        )
+                      ) : null}
+                    </th>
+                    <th>Checked Out</th>
+                    <th>QR</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((user) => (
-                    <tr
-                      key={user.id}
-                      className={
-                        selectedUsers.includes(user.id) ? "selected" : ""
-                      }
-                    >
+                  {filtered.map((u) => (
+                    <tr key={u.id}>
+                      <td className="user-id">{u.id || "-"}</td>
+                      <td className="user-name">{u.name || "-"}</td>
+                      <td className="user-email">{u.email || "-"}</td>
+                      <td>{u.grade_level || "-"}</td>
+                      <td>{u.remark || "-"}</td>
                       <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.includes(user.id)}
-                          onChange={() => handleSelectUser(user.id)}
-                          className="checkbox"
-                        />
-                      </td>
-                      <td className="user-id">{user.id || "-"}</td>
-                      <td className="user-name">{user.name || "-"}</td>
-                      <td className="user-email">{user.email || "-"}</td>
-                      <td className="user-phone">{user.phone || "-"}</td>
-                      <td className="user-department">
-                        {user.organisation || "-"}
+                        {u.checked_in_at
+                          ? new Date(u.checked_in_at).toLocaleString()
+                          : "-"}
                       </td>
                       <td>
-                        <select
-                          value={user.status || "active"}
-                          onChange={(e) =>
-                            handleStatusChange(user.id, e.target.value)
-                          }
-                          className={`status-select status-${
-                            user.status || "active"
-                          }`}
-                        >
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                        </select>
-                      </td>
-                      <td className="qr-cell">
-                        {user.qrCode ? (
-                          <div className="qr-actions">
-                            <img
-                              src={user.qrCode}
-                              alt="QR Code"
-                              className="qr-thumbnail"
-                              title="Click to download"
-                              onClick={() => downloadUserQR(user)}
-                            />
-                            <div className="qr-buttons">
-                              <button
-                                className="action-btn qr-btn"
-                                onClick={() => downloadUserQR(user)}
-                                title="Download QR Code"
-                              >
-                                <FaQrcode />
-                              </button>
-                              <button
-                                className="action-btn email-btn"
-                                onClick={() => sendEmailToUser(user)}
-                                title="Send Email with QR Code"
-                                disabled={!isEmailConfigured}
-                              >
-                                <FaEnvelope />
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            className="action-btn generate-qr-btn"
-                            onClick={() => generateQRForUser(user)}
-                            title="Generate QR Code"
-                          >
-                            <FaQrcode />
-                          </button>
-                        )}
-                      </td>
-                      <td className="user-registered">
-                        {new Date(user.registeredAt).toLocaleDateString()}
+                        {u.checked_out_at
+                          ? new Date(u.checked_out_at).toLocaleString()
+                          : "-"}
                       </td>
                       <td>
-                        <div className="action-buttons">
-                          <button
-                            className="action-btn edit-btn"
-                            onClick={() => handleEditUser(user)}
-                            title="Edit User"
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            className="action-btn delete-btn"
-                            onClick={() => handleDeleteUser(user)}
-                            title="Delete User"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
+                        <DownloadQrButton raw={u} />
                       </td>
                     </tr>
                   ))}
@@ -786,244 +500,7 @@ const RegisteredList = () => {
             </div>
           )}
         </div>
-
-        {selectedUsers.length > 0 && (
-          <div className="bulk-actions">
-            <div className="bulk-info">
-              {selectedUsers.length} user(s) selected
-            </div>
-            <div className="bulk-buttons">
-              <button className="btn btn-success">
-                <FaUserCheck />
-                Mark Active
-              </button>
-              <button className="btn btn-secondary">
-                <FaUserTimes />
-                Mark Inactive
-              </button>
-              <button className="btn btn-danger">
-                <FaTrash />
-                Delete Selected
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Confirm Delete</h3>
-            <p>
-              Are you sure you want to delete user{" "}
-              <strong>{userToDelete?.name}</strong>? This action cannot be
-              undone and will also remove them from all scan lists.
-            </p>
-            <div className="modal-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowDeleteModal(false)}
-              >
-                Cancel
-              </button>
-              <button className="btn btn-danger" onClick={confirmDelete}>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {showEditModal && (
-        <div className="modal-overlay">
-          <div className="modal modal-large">
-            <div className="modal-header">
-              <h3>
-                <FaEdit /> Edit User: {userToEdit?.name}
-              </h3>
-              <button className="modal-close" onClick={cancelEdit}>
-                ×
-              </button>
-            </div>
-
-            <form className="edit-form" onSubmit={(e) => e.preventDefault()}>
-              {editErrors.submit && (
-                <div className="alert alert-error">{editErrors.submit}</div>
-              )}
-
-              <div className="form-grid">
-                <div className="form-group">
-                  <label htmlFor="edit-name" className="form-label">
-                    <FaUsers />
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="edit-name"
-                    name="name"
-                    value={editFormData.name || ""}
-                    onChange={handleEditInputChange}
-                    className={`form-input ${editErrors.name ? "error" : ""}`}
-                    placeholder="Enter full name"
-                  />
-                  {editErrors.name && (
-                    <span className="error-text">{editErrors.name}</span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="edit-email" className="form-label">
-                    <FaEnvelope />
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    id="edit-email"
-                    name="email"
-                    value={editFormData.email || ""}
-                    onChange={handleEditInputChange}
-                    className={`form-input ${editErrors.email ? "error" : ""}`}
-                    placeholder="Enter email address"
-                  />
-                  {editErrors.email && (
-                    <span className="error-text">{editErrors.email}</span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="edit-phone" className="form-label">
-                    📞 Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    id="edit-phone"
-                    name="phone"
-                    value={editFormData.phone || ""}
-                    onChange={handleEditInputChange}
-                    className={`form-input ${editErrors.phone ? "error" : ""}`}
-                    placeholder="Enter phone number"
-                  />
-                  {editErrors.phone && (
-                    <span className="error-text">{editErrors.phone}</span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label
-                    htmlFor="edit-participationCategory"
-                    className="form-label"
-                  >
-                    📊 Participation Category
-                  </label>
-                  <select
-                    id="edit-participationCategory"
-                    name="participationCategory"
-                    value={editFormData.participationCategory || ""}
-                    onChange={handleEditInputChange}
-                    className="form-input"
-                  >
-                    <option value="">Select category</option>
-                    <option value="Physical">Physical</option>
-                    <option value="Virtual">Virtual</option>
-                    <option value="Hybrid">Hybrid</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="edit-organisation" className="form-label">
-                    🏢 Organisation
-                  </label>
-                  <input
-                    type="text"
-                    id="edit-organisation"
-                    name="organisation"
-                    value={editFormData.organisation || ""}
-                    onChange={handleEditInputChange}
-                    className="form-input"
-                    placeholder="Enter organisation"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="edit-designation" className="form-label">
-                    💼 Designation
-                  </label>
-                  <input
-                    type="text"
-                    id="edit-designation"
-                    name="designation"
-                    value={editFormData.designation || ""}
-                    onChange={handleEditInputChange}
-                    className="form-input"
-                    placeholder="Enter job title/designation"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="edit-backupCode" className="form-label">
-                    🔑 Backup Code
-                  </label>
-                  <input
-                    type="text"
-                    id="edit-backupCode"
-                    name="backupCode"
-                    value={editFormData.backupCode || ""}
-                    onChange={handleEditInputChange}
-                    className="form-input"
-                    placeholder="Backup access code"
-                  />
-                </div>
-
-                <div className="form-group form-group-full">
-                  <label htmlFor="edit-notes" className="form-label">
-                    📝 Notes
-                  </label>
-                  <textarea
-                    id="edit-notes"
-                    name="notes"
-                    value={editFormData.notes || ""}
-                    onChange={handleEditInputChange}
-                    className="form-input form-textarea"
-                    placeholder="Additional notes (optional)"
-                    rows="3"
-                  />
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={cancelEdit}
-                  disabled={isUpdating}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleUpdateUser}
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? (
-                    <>
-                      <div className="loading"></div>
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      <FaEdit />
-                      Update User
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

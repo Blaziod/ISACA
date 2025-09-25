@@ -10,7 +10,7 @@ import "./ManualCode.css";
 import axios from "axios";
 import { toast } from "react-toastify";
 
-const ManualCode = () => {
+const ScanIn = () => {
   const apiUrl = "https://id-code-432903898833.europe-west1.run.app/api/v1/";
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -38,7 +38,7 @@ const ManualCode = () => {
 
       // eslint-disable-next-line no-unused-vars
       const response = await axios.post(
-        `${apiUrl}event/attendance/${uuid}/checked_out`,
+        `${apiUrl}event/attendance/${uuid}/checked_in`,
         { nin: value },
         {
           headers: {
@@ -131,7 +131,7 @@ const ManualCode = () => {
         <div className="code-header">
           <FaKeyboard className="code-icon" />
           <div>
-            <h1 className="code-title">Scan Out User</h1>
+            <h1 className="code-title">Scan In Registered Users</h1>
             <p className="code-subtitle">Enter exact user id</p>
           </div>
         </div>
@@ -209,7 +209,8 @@ const ManualCode = () => {
               <h3>Accepted Code Formats:</h3>
               <ul>
                 <li>
-                  <strong>ID:</strong> 7edc69a2-fa32-43fc-aa7f-d026f4734a24e
+                  <strong>User ID:</strong> e.g.,
+                  123e4567-e89b-12d3-a456-426614174000
                 </li>
               </ul>
             </div>
@@ -220,4 +221,4 @@ const ManualCode = () => {
   );
 };
 
-export default ManualCode;
+export default ScanIn;
