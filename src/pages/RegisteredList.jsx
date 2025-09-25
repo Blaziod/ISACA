@@ -248,7 +248,7 @@ const RegisteredList = () => {
             <thead>
               <tr>
                 <th>ID</th><th>Name</th><th>Email</th><th>Grade</th><th>Remark</th>
-                <th>Status</th><th>Checked In</th><th>Checked Out</th><th>Duration</th><th>QR</th>
+                <th>Status</th><th>Checked In</th><th>Checked Out</th><th>Duration</th>
               </tr>
             </thead>
             <tbody>
