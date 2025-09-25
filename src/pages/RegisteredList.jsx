@@ -327,6 +327,112 @@ const RegisteredList = () => {
       </button>
     );
   }
+  function ScanoutButton({ raw }) {
+    const ScanoutUser = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("idCodeToken");
+
+        // eslint-disable-next-line no-unused-vars
+        const response = await axios.post(
+          `${apiUrl}event/attendance/${raw.id}/checked_out`,
+
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        toast.success("User Checked Out Successfully!", {
+          position: "top-center",
+          autoClose: 5000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          style: {
+            backgroundColor: "#4CAF50",
+            color: "#ffffff",
+            borderRadius: "8px",
+            padding: "16px",
+            fontSize: "16px",
+            fontWeight: "bold",
+          },
+        });
+      } catch (error) {
+        let errorMessage = "An unexpected error occurred. Please try again.";
+        const toastOptions = {
+          position: "top-center",
+          autoClose: 3000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          style: {
+            backgroundColor: "#D32F2F",
+            color: "#ffffff",
+            borderRadius: "8px",
+            padding: "16px",
+            fontSize: "16px",
+            fontWeight: "bold",
+          },
+        };
+
+        console.error(
+          "Login Error Response:",
+          error.response?.data || error.message
+        );
+
+        if (error.response && error.response.data) {
+          const responseData = error.response.data;
+
+          if (responseData.detail && Array.isArray(responseData.detail)) {
+            const firstError = responseData.detail[0];
+            const field = firstError.loc?.[1] || "Input";
+            const msg = firstError.msg || "is invalid";
+            errorMessage = `${
+              field.charAt(0).toUpperCase() + field.slice(1)
+            }: ${msg}`;
+          } else if (responseData.message) {
+            errorMessage = responseData.message;
+          } else {
+            errorMessage = `${responseData.detail} Please try again.`;
+          }
+        } else if (error.request) {
+          errorMessage =
+            "Sorry something went wrong, our engineers are working on it! Please try again later.";
+        } else {
+          errorMessage = "An error occurred while preparing the request.";
+        }
+
+        toast.error(errorMessage, toastOptions);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <button
+        style={{
+          height: "40px", // Increased height for better UX
+          border: "1px solid #D1D5DB",
+          backgroundColor: "red",
+          color: "#fff",
+          borderRadius: "7px",
+          width: "100%",
+          fontSize: "14px",
+          fontWeight: "bold",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+        }}
+        onClick={ScanoutUser}
+      >
+        Check Out
+      </button>
+    );
+  }
+
   return (
     <div className="registered-list fade-in">
       <div className="container">
@@ -454,7 +560,7 @@ const RegisteredList = () => {
                         )
                       ) : null}
                     </th>
-                    <th>Remark</th>
+
                     <th
                       className="sortable"
                       onClick={() => handleSort("checked_in_at")}
@@ -470,6 +576,7 @@ const RegisteredList = () => {
                     </th>
                     <th>Checked Out</th>
                     <th>QR</th>
+                    <th>Check-Out</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -479,7 +586,7 @@ const RegisteredList = () => {
                       <td className="user-name">{u.name || "-"}</td>
                       <td className="user-email">{u.email || "-"}</td>
                       <td>{u.grade_level || "-"}</td>
-                      <td>{u.remark || "-"}</td>
+
                       <td>
                         {u.checked_in_at
                           ? new Date(u.checked_in_at).toLocaleString()
@@ -493,8 +600,12 @@ const RegisteredList = () => {
                       <td>
                         <DownloadQrButton raw={u} />
                       </td>
+                      <td>
+                        <ScanoutButton raw={u} />
+                      </td>
                     </tr>
                   ))}
+                  <tr></tr>
                 </tbody>
               </table>
             </div>
