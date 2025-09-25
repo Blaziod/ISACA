@@ -107,17 +107,24 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 15px;
 }
 
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.5rem;
 }
 
 .filter-icon {
   color: #7f8c8d;
   font-size: 1.1rem;
+}
+
+.filter-label {
+  font-size: 0.875rem;
+  color: #495057;
+  white-space: nowrap;
 }
 
 .filter-select {
@@ -128,6 +135,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  color: black;
 }
 
 .filter-select:focus {
@@ -141,6 +149,7 @@
   border-radius: 15px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  position: relative;
 }
 
 .empty-state {
@@ -168,182 +177,266 @@
 
 .table-container {
   overflow-x: auto;
+  overflow-y: visible;
+  /* Always show horizontal scrollbar when content overflows */
+  scrollbar-width: thin;
+  scrollbar-color: #ff9800 #f1f1f1;
+  /* Add padding to prevent content from being cut off */
+  padding-bottom: 1rem;
+  /* Enable smooth scrolling */
+  scroll-behavior: smooth;
+  /* Make it easier to grab and scroll on touch devices */
+  -webkit-overflow-scrolling: touch;
 }
 
+/* Custom scrollbar styling for webkit browsers */
+.table-container::-webkit-scrollbar {
+  height: 12px;
+  background-color: #f8f9fa;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #e9ecef;
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #ff9800, #f57c00);
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #f57c00, #ef6c00);
+}
+
+/* Ensure table maintains proper width and doesn't compress columns */
 .users-table {
   width: 100%;
   border-collapse: collapse;
+  /* Set minimum width to ensure horizontal scrolling when needed */
+  min-width: 1000px;
+  /* Add table-layout: fixed for consistent column widths */
+  table-layout: auto;
 }
 
+/* Define minimum widths for columns to prevent over-compression */
 .users-table th,
 .users-table td {
   padding: 15px 12px;
   text-align: left;
   border-bottom: 1px solid #e1e5e9;
+  /* Prevent text wrapping in cells */
+  white-space: nowrap;
+  /* Set minimum widths for specific columns */
+  min-width: fit-content;
 }
 
+/* Specific column width constraints */
+.users-table th:nth-child(1), /* ID */
+.users-table td:nth-child(1) {
+  min-width: 100px;
+}
+
+.users-table th:nth-child(2), /* Name */
+.users-table td:nth-child(2) {
+  min-width: 150px;
+}
+
+.users-table th:nth-child(3), /* Email */
+.users-table td:nth-child(3) {
+  min-width: 200px;
+}
+
+.users-table th:nth-child(4), /* Grade */
+.users-table td:nth-child(4) {
+  min-width: 100px;
+}
+
+.users-table th:nth-child(5), /* Checked In */
+.users-table td:nth-child(5) {
+  min-width: 160px;
+}
+
+.users-table th:nth-child(6), /* Checked Out */
+.users-table td:nth-child(6) {
+  min-width: 160px;
+}
+
+.users-table th:nth-child(7), /* Duration */
+.users-table td:nth-child(7) {
+  min-width: 100px;
+}
+
+.users-table th:nth-child(8), /* QR */
+.users-table td:nth-child(8) {
+  min-width: 120px;
+}
+
+.users-table th:nth-child(9), /* Check-Out */
+.users-table td:nth-child(9) {
+  min-width: 100px;
+}
+
+/* Allow email and name columns to wrap on very small screens */
+.users-table td.user-email {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 200px;
+}
+
+.users-table td.user-name {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 150px;
+}
+
+/* Sticky header with proper z-index for horizontal scrolling */
 .users-table th {
   background: #f8f9fa;
   font-weight: 600;
   color: #2c3e50;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 10;
+  /* Add box shadow to distinguish from content while scrolling */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.sortable {
-  cursor: pointer;
-  transition: all 0.3s ease;
-  user-select: none;
-  position: relative;
+/* Add visual indicators for scrollable content */
+.table-container::before,
+.table-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 1rem; /* Account for scrollbar height */
+  width: 20px;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 0.3s ease;
 }
 
-.sortable:hover {
-  background: #e9ecef;
-  color: #ff9800;
+/* Left scroll indicator */
+.table-container::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(248, 249, 250, 0.9), transparent);
+  opacity: 0;
 }
 
-.sortable svg {
-  margin-left: 5px;
-  font-size: 0.8rem;
+/* Right scroll indicator */
+.table-container::after {
+  right: 0;
+  background: linear-gradient(-90deg, rgba(248, 249, 250, 0.9), transparent);
+  opacity: 1;
 }
 
-.users-table tr:hover {
-  background: #f8f9fa;
+/* Show/hide scroll indicators based on scroll position */
+.table-container.scrolled-left::before {
+  opacity: 1;
 }
 
-.users-table tr.selected {
-  background: #e3f2fd;
+.table-container.scrolled-right::after {
+  opacity: 0;
 }
 
-.checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
+/* Improve touch scrolling on mobile devices */
+.table-container {
+  /* Enable momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Improve scrolling performance */
+  transform: translate3d(0, 0, 0);
 }
 
-.user-id {
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
-  color: #2c3e50;
-  background: #f8f9fa;
-  padding: 6px 10px;
-  border-radius: 4px;
-  display: inline-block;
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .table-container {
+    /* Make scrollbar more prominent on mobile */
+    scrollbar-width: auto;
+  }
+  
+  .table-container::-webkit-scrollbar {
+    height: 16px;
+  }
+  
+  /* Reduce table minimum width on mobile */
+  .users-table {
+    min-width: 800px;
+  }
+  
+  /* Adjust column widths for mobile */
+  .users-table th,
+  .users-table td {
+    padding: 12px 8px;
+  }
+  
+  .users-table th:nth-child(1),
+  .users-table td:nth-child(1) {
+    min-width: 80px;
+  }
+  
+  .users-table th:nth-child(2),
+  .users-table td:nth-child(2) {
+    min-width: 120px;
+  }
+  
+  .users-table th:nth-child(3),
+  .users-table td:nth-child(3) {
+    min-width: 150px;
+  }
 }
 
-.user-name {
-  font-weight: 600;
-  color: #2c3e50;
+@media (max-width: 480px) {
+  .users-table {
+    min-width: 700px;
+  }
+  
+  /* Make scrollbar even more prominent on very small screens */
+  .table-container::-webkit-scrollbar {
+    height: 20px;
+  }
+  
+  /* Add touch-friendly padding */
+  .table-container {
+    padding-bottom: 1.5rem;
+  }
 }
 
-.user-email {
-  color: #7f8c8d;
+/* Accessibility improvements for keyboard navigation */
+.table-container:focus-within {
+  outline: 2px solid #ff9800;
+  outline-offset: 2px;
 }
 
-.user-phone {
-  font-family: 'Courier New', monospace;
+/* Add scroll hint for users */
+.table-scroll-hint {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  color: #6c757d;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: fadeInOut 3s ease-in-out;
+  z-index: 3;
 }
 
-.user-department {
-  color: #7f8c8d;
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.7; }
 }
 
-.status-select {
-  padding: 6px 12px;
-  border: 1px solid #e1e5e9;
-  border-radius: 15px;
-  background: white;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.status-select.status-active {
-  background: #d4edda;
-  color: #155724;
-  border-color: #c3e6cb;
-}
-
-.status-select.status-inactive {
-  background: #f8d7da;
-  color: #721c24;
-  border-color: #f5c6cb;
-}
-
-.user-registered {
-  color: #7f8c8d;
-  font-size: 0.95rem;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 8px 10px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
+/* Ensure proper spacing and prevent layout shift */
+.pagination-info {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.edit-btn {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-
-.edit-btn:hover {
-  background: #1976d2;
-  color: white;
-  transform: scale(1.1);
-}
-
-.delete-btn {
-  background: #ffebee;
-  color: #d32f2f;
-}
-
-.delete-btn:hover {
-  background: #d32f2f;
-  color: white;
-  transform: scale(1.1);
-}
-
-.bulk-actions {
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 20px 25px;
-  background: white;
-  border-radius: 12px;
-  margin-top: 20px;
-  box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
-}
-
-.bulk-info {
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 1rem;
-}
-
-.bulk-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.bulk-buttons .btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+  background: #f8f9fa;
+  border-radius: 8px;
 }
 
 /* Modal */
@@ -392,6 +485,37 @@
 .modal-actions .btn {
   padding: 12px 24px;
   font-size: 1rem;
+}
+
+/* Duration display styles */
+.duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 500;
+}
+
+.duration-active {
+  color: #28a745;
+  background-color: #d4edda;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.duration-complete {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.duration-none {
+  color: #adb5bd;
+  font-style: italic;
+}
+
+.duration-indicator {
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
 }
 
 /* Animations */
@@ -804,4 +928,354 @@
   .edit-form .form-input {
     padding: 10px 12px;
   }
+}
+
+/* Pagination Info */
+.pagination-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #6c757d;
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Filter adjustments for items per page */
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.875rem;
+  color: #495057;
+  white-space: nowrap;
+}
+
+/* Pagination Container */
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid #e9ecef;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 1rem;
+}
+
+/* Pagination Buttons */
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border: 1px solid #dee2e6;
+  background-color: #fff;
+  color: #495057;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.pagination-btn:disabled {
+  color: #adb5bd;
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.pagination-btn-active {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: #fff;
+}
+
+.pagination-btn-active:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+.pagination-btn-nav {
+  font-size: 1rem;
+}
+
+.pagination-ellipsis {
+  cursor: default;
+  border: none;
+  background: none;
+}
+
+.pagination-ellipsis:hover {
+  background: none;
+  border: none;
+}
+
+.pagination-summary {
+  font-size: 0.875rem;
+  color: #6c757d;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .pagination-container {
+    margin-top: 1rem;
+    padding: 1rem 0;
+  }
+
+  .pagination-controls {
+    gap: 0.25rem;
+  }
+
+  .pagination-numbers {
+    margin: 0 0.5rem;
+    gap: 0.125rem;
+  }
+
+  .pagination-btn {
+    min-width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+  }
+
+  .pagination-btn-nav {
+    min-width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .pagination-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .filter-section {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* Hide some pagination numbers on mobile */
+  .pagination-numbers .pagination-btn:not(.pagination-btn-active):nth-child(n+4):nth-child(-n+10) {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-summary {
+    font-size: 0.75rem;
+  }
+
+  /* Show even fewer pagination numbers on very small screens */
+  .pagination-numbers {
+    max-width: 200px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+}
+
+/* Smooth scrolling for better UX */
+@media (prefers-reduced-motion: no-preference) {
+  .table-section {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Top scroll wrapper and container */
+.top-scroll-wrapper {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.top-scroll-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 20px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  position: relative;
+  
+  /* Enhanced scrolling properties for natural feel */
+  scroll-behavior: auto; /* Remove smooth scroll for immediate response */
+  -webkit-overflow-scrolling: touch; /* Enable momentum scrolling on iOS */
+  scrollbar-width: thin;
+  scrollbar-color: #ff9800 #f1f1f1;
+  
+  /* Improve scrolling performance */
+  transform: translate3d(0, 0, 0);
+  will-change: scroll-position;
+  
+  /* Remove any scroll snap that might slow it down */
+  scroll-snap-type: none;
+}
+
+.top-scroll-container::-webkit-scrollbar {
+  height: 16px;
+  background-color: #f8f9fa;
+}
+
+.top-scroll-container::-webkit-scrollbar-track {
+  background: #e9ecef;
+  border-radius: 6px;
+}
+
+.top-scroll-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #ff9800, #f57c00);
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  /* Make scrollbar thumb more responsive */
+  transition: background 0.1s ease;
+}
+
+.top-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #f57c00, #ef6c00);
+}
+
+.top-scroll-container::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(90deg, #ef6c00, #e65100);
+}
+
+.top-scroll-content {
+  /* This div will have the same width as the table to create the scroll area */
+  width: 1000px; /* Same as table min-width */
+  height: 1px;
+  pointer-events: none;
+  /* Ensure it doesn't interfere with scrolling */
+  user-select: none;
+}
+
+/* Update table container scrolling to match */
+.table-container {
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: #ff9800 #f1f1f1;
+  padding-bottom: 0;
+  
+  /* Match the top scroll behavior */
+  scroll-behavior: auto; /* Immediate response, no smooth scroll delay */
+  -webkit-overflow-scrolling: touch;
+  transform: translate3d(0, 0, 0);
+  will-change: scroll-position;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .top-scroll-container {
+    height: 24px;
+    /* Larger scroll area for better touch interaction */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .top-scroll-container::-webkit-scrollbar {
+    height: 20px;
+  }
+  
+  .top-scroll-content {
+    width: 800px; /* Match mobile table width */
+  }
+}
+
+@media (max-width: 480px) {
+  .top-scroll-container {
+    height: 28px;
+    /* Even larger for very small screens */
+  }
+  
+  .top-scroll-container::-webkit-scrollbar {
+    height: 24px;
+  }
+  
+  .top-scroll-content {
+    width: 700px; /* Match very small screen table width */
+  }
+}
+
+/* Remove the scroll hint animation that might interfere */
+.top-scroll-wrapper::before {
+  content: '↔ Scroll horizontally';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #6c757d;
+  font-size: 0.75rem;
+  pointer-events: none;
+  opacity: 0.7;
+  z-index: 2;
+  background: rgba(248, 249, 250, 0.9);
+  padding: 0 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  /* Remove transitions that might cause delays */
+  transition: none;
+}
+
+/* Enhanced scroll hint styling with faster animation */
+.table-scroll-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ff9800;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.8;
+  pointer-events: none;
+  animation: quickFade 2s ease-in-out; /* Faster animation */
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #ff9800;
+}
+
+@keyframes quickFade {
+  0%, 100% { opacity: 0; }
+  20%, 80% { opacity: 0.8; } /* Show hint longer, fade faster */
+}
+
+/* Focus states for accessibility - remove delays */
+.top-scroll-container:focus {
+  outline: 2px solid #ff9800;
+  outline-offset: 2px;
+  transition: none;
+}
+
+/* Sync scroll indicators between top and bottom */
+.table-container.scrolled-left ~ .top-scroll-wrapper .top-scroll-container::before,
+.top-scroll-container.scrolled-left::before {
+  opacity: 1;
+}
+
+.table-container.scrolled-right ~ .top-scroll-wrapper .top-scroll-container::after,
+.top-scroll-container.scrolled-right::after {
+  opacity: 0;
 }
