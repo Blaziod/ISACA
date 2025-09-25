@@ -1,113 +1,79 @@
-import { useState, useEffect } from "react";
+/* eslint-disable react/prop-types */
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios";
 import {
   FaQrcode,
   FaKeyboard,
   FaUserPlus,
   FaUsers,
   FaSignInAlt,
-  FaSignOutAlt,
   FaChartBar,
   FaClock,
 } from "react-icons/fa";
-import {
-  storage,
-  STORAGE_KEYS,
-  getStorageStatus,
-  verifyDataIntegrity,
-  syncData,
-} from "../utils/storage";
 import "./Dashboard.css";
 
-const Dashboard = () => {
+const API_URL = "https://id-code-432903898833.europe-west1.run.app/api/v1";
+const STATS_PATH =
+  "/event/events/7edc69a2-fa32-43fc-aa9f-d026f434a24e/analytics";
+
+const Dashboard = ({ eventId = "7edc69a2-fa32-43fc-aa9f-d026f434a24e" }) => {
   const [stats, setStats] = useState({
-    totalRegistered: 0,
-    checkedIn: 0,
-    checkedOut: 0,
-    lastActivity: null,
+    registration_count: 0,
+    live_attendance_count: 0,
+    no_show_count: 0,
+    average_duration: 0, // minutes (per your sample)
   });
-
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [storageHealth, setStorageHealth] = useState(null);
-  const [isRepairing, setIsRepairing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
+  // clock
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        await storage.initialize();
-        const registered = await storage.get(STORAGE_KEYS.REGISTERED_USERS);
-        const scanInList = await storage.get(STORAGE_KEYS.SCAN_IN_LIST);
-        const scanOutList = await storage.get(STORAGE_KEYS.SCAN_OUT_LIST);
-
-        setStats({
-          totalRegistered: registered.length,
-          checkedIn: scanInList.length,
-          checkedOut: scanOutList.length,
-          lastActivity:
-            scanInList.length > 0 || scanOutList.length > 0
-              ? new Date(
-                  Math.max(
-                    scanInList.length > 0
-                      ? new Date(scanInList[scanInList.length - 1].timestamp)
-                      : 0,
-                    scanOutList.length > 0
-                      ? new Date(scanOutList[scanOutList.length - 1].timestamp)
-                      : 0
-                  )
-                )
-              : null,
-        });
-
-        // Check storage health
-        const health = getStorageStatus();
-        setStorageHealth(health);
-
-        // Log health status for debugging
-        console.log("📊 Storage Health:", health);
-      } catch (error) {
-        console.error("Error loading dashboard stats:", error);
-      }
-    };
-
-    loadStats();
-
-    // Update time every second
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
+    const t = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  const handleRepairStorage = async () => {
-    setIsRepairing(true);
-    try {
-      console.log("🔧 Starting storage repair...");
-
-      // Verify and repair data integrity
-      await verifyDataIntegrity();
-
-      // Force sync with Firebase
-      await syncData();
-
-      // Refresh health status
-      const health = getStorageStatus();
-      setStorageHealth(health);
-
-      console.log("✅ Storage repair completed");
-      alert("Storage repair completed successfully!");
-    } catch (error) {
-      console.error("❌ Storage repair failed:", error);
-      alert("Storage repair failed. Check console for details.");
-    } finally {
-      setIsRepairing(false);
-    }
-  };
+  // fetch stats
+  useEffect(() => {
+    const controller = new AbortController();
+    const run = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const params = eventId ? { event_id: eventId } : {};
+        const { data } = await axios.get(`${API_URL}${STATS_PATH}`, {
+          params,
+          signal: controller.signal,
+          // headers: { Authorization: `Bearer ${token}` },
+          timeout: 20000,
+        });
+        // expected shape:
+        // { live_attendance_count, registration_count, no_show_count, average_duration }
+        setStats({
+          registration_count: Number(data.registration_count || 0),
+          live_attendance_count: Number(data.live_attendance_count || 0),
+          no_show_count: Number(data.no_show_count || 0),
+          average_duration: Number(data.average_duration || 0),
+        });
+      } catch (e) {
+        if (axios.isCancel?.(e)) return;
+        const code = e.response?.status
+          ? `HTTP ${e.response.status}`
+          : e.code || "ERR_NETWORK";
+        setError(`Failed to load stats. ${code}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+    return () => controller.abort();
+  }, [eventId]);
 
   const quickActions = [
     {
       title: "QR Scanner",
-      description: "Scan QR codes for quick check-in/out",
+      description: "Scan QR for check-in/out",
       icon: FaQrcode,
       path: "/scan",
       color: "#3498db",
@@ -115,7 +81,7 @@ const Dashboard = () => {
     },
     {
       title: "Manual Code",
-      description: "Enter backup codes manually",
+      description: "Enter backup codes",
       icon: FaKeyboard,
       path: "/code",
       color: "#9c27b0",
@@ -123,7 +89,7 @@ const Dashboard = () => {
     },
     {
       title: "Register User",
-      description: "Add new users to the system",
+      description: "Add new users",
       icon: FaUserPlus,
       path: "/register",
       color: "#4caf50",
@@ -131,7 +97,7 @@ const Dashboard = () => {
     },
     {
       title: "User Lists",
-      description: "View all registered users",
+      description: "All registered users",
       icon: FaUsers,
       path: "/registered-list",
       color: "#ff9800",
@@ -141,31 +107,36 @@ const Dashboard = () => {
 
   const recentActivities = [
     {
-      title: "Scan In List",
-      description: "View who has checked in today",
+      title: "Live Attendance",
+      description: "Currently checked in",
       icon: FaSignInAlt,
-      path: "/scan-in-list",
-      count: stats.checkedIn,
+      path: "/scan-in",
+      count: stats.live_attendance_count,
       color: "#4caf50",
     },
     {
-      title: "Scan Out List",
-      description: "View who has checked out",
-      icon: FaSignOutAlt,
-      path: "/scan-out-list",
-      count: stats.checkedOut,
-      color: "#f44336",
+      title: "Registrations",
+      description: "Total registered",
+      icon: FaUsers,
+      path: "/registered-list",
+      count: stats.registration_count,
+      color: "#3498db",
     },
   ];
+
+  const avgDurationLabel =
+    stats.average_duration > 0
+      ? `${Math.round(stats.average_duration)} min`
+      : "--";
 
   return (
     <div className="dashboard fade-in">
       <div className="dashboard-header">
         <div className="welcome-section">
-          <h1 className="dashboard-title">Welcome to Access IDCODE</h1>
-          <p className="dashboard-subtitle">
-            Manage access control and attendance tracking efficiently
-          </p>
+          <h1 className="dashboard-title">Access IDCODE</h1>
+          <p className="dashboard-subtitle">API-driven attendance dashboard</p>
+          {error && <p className="error-text">{error}</p>}
+          {loading && !error && <p className="muted">Loading…</p>}
         </div>
         <div className="time-section">
           <FaClock className="clock-icon" />
@@ -186,7 +157,7 @@ const Dashboard = () => {
             <FaUsers />
           </div>
           <div className="stat-content">
-            <div className="stat-number">{stats.totalRegistered}</div>
+            <div className="stat-number">{stats.registration_count}</div>
             <div className="stat-label">Total Registered</div>
           </div>
         </div>
@@ -196,18 +167,18 @@ const Dashboard = () => {
             <FaSignInAlt />
           </div>
           <div className="stat-content">
-            <div className="stat-number">{stats.checkedIn}</div>
-            <div className="stat-label">Checked In</div>
+            <div className="stat-number">{stats.live_attendance_count}</div>
+            <div className="stat-label">Live Attendance</div>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon" style={{ color: "#f44336" }}>
-            <FaSignOutAlt />
+            <FaChartBar />
           </div>
           <div className="stat-content">
-            <div className="stat-number">{stats.checkedOut}</div>
-            <div className="stat-label">Checked Out</div>
+            <div className="stat-number">{stats.no_show_count}</div>
+            <div className="stat-label">Scanned In</div>
           </div>
         </div>
 
@@ -216,95 +187,34 @@ const Dashboard = () => {
             <FaChartBar />
           </div>
           <div className="stat-content">
-            <div className="stat-number">
-              {stats.lastActivity
-                ? stats.lastActivity.toLocaleTimeString()
-                : "--:--"}
-            </div>
-            <div className="stat-label">Last Activity</div>
+            <div className="stat-number">{avgDurationLabel}</div>
+            <div className="stat-label">Avg Duration</div>
           </div>
         </div>
       </div>
-
-      {/* Storage Health Indicator */}
-      {storageHealth && (
-        <div className="storage-health-section">
-          <div className="storage-health-card">
-            <div className="storage-health-header">
-              <h3>Storage Health</h3>
-              <div
-                className={`status-indicator ${
-                  storageHealth.firebaseAvailable && storageHealth.isOnline
-                    ? "healthy"
-                    : "warning"
-                }`}
-              >
-                {storageHealth.firebaseAvailable && storageHealth.isOnline
-                  ? "🟢 Healthy"
-                  : "🟡 Issues Detected"}
-              </div>
-            </div>
-            <div className="storage-health-details">
-              <div className="health-item">
-                <span>
-                  Firebase:{" "}
-                  {storageHealth.firebaseAvailable
-                    ? "✅ Available"
-                    : "❌ Unavailable"}
-                </span>
-              </div>
-              <div className="health-item">
-                <span>
-                  Online:{" "}
-                  {storageHealth.isOnline ? "✅ Connected" : "❌ Offline"}
-                </span>
-              </div>
-              <div className="health-item">
-                <span>Storage Mode: Firebase Direct</span>
-              </div>
-              {storageHealth.pendingOperations > 0 && (
-                <div className="health-item warning">
-                  <span>
-                    ⚠️ Active operations: {storageHealth.pendingOperations}
-                  </span>
-                </div>
-              )}
-            </div>
-            {!storageHealth.firebaseAvailable && (
-              <button
-                className="repair-button"
-                onClick={handleRepairStorage}
-                disabled={isRepairing}
-              >
-                {isRepairing ? "🔧 Repairing..." : "🔧 Repair Storage"}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="dashboard-content">
         <div className="section">
           <h2 className="section-title">Quick Actions</h2>
           <div className="actions-grid">
-            {quickActions.map((action, index) => {
-              const IconComponent = action.icon;
+            {quickActions.map((a, i) => {
+              const Icon = a.icon;
               return (
                 <Link
-                  key={index}
-                  to={action.path}
+                  key={i}
+                  to={a.path}
                   className="action-card"
                   style={{
-                    backgroundColor: action.bgColor,
-                    borderLeft: `4px solid ${action.color}`,
+                    backgroundColor: a.bgColor,
+                    borderLeft: `4px solid ${a.color}`,
                   }}
                 >
-                  <div className="action-icon" style={{ color: action.color }}>
-                    <IconComponent />
+                  <div className="action-icon" style={{ color: a.color }}>
+                    <Icon />
                   </div>
                   <div className="action-content">
-                    <h3 className="action-title">{action.title}</h3>
-                    <p className="action-description">{action.description}</p>
+                    <h3 className="action-title">{a.title}</h3>
+                    <p className="action-description">{a.description}</p>
                   </div>
                 </Link>
               );
@@ -315,26 +225,18 @@ const Dashboard = () => {
         <div className="section">
           <h2 className="section-title">Recent Activity</h2>
           <div className="activities-grid">
-            {recentActivities.map((activity, index) => {
-              const IconComponent = activity.icon;
+            {recentActivities.map((a, i) => {
+              const Icon = a.icon;
               return (
-                <Link key={index} to={activity.path} className="activity-card">
-                  <div
-                    className="activity-icon"
-                    style={{ color: activity.color }}
-                  >
-                    <IconComponent />
+                <Link key={i} to={a.path} className="activity-card">
+                  <div className="activity-icon" style={{ color: a.color }}>
+                    <Icon />
                   </div>
                   <div className="activity-content">
-                    <h3 className="activity-title">{activity.title}</h3>
-                    <p className="activity-description">
-                      {activity.description}
-                    </p>
-                    <div
-                      className="activity-count"
-                      style={{ color: activity.color }}
-                    >
-                      {activity.count} entries
+                    <h3 className="activity-title">{a.title}</h3>
+                    <p className="activity-description">{a.description}</p>
+                    <div className="activity-count" style={{ color: a.color }}>
+                      {a.count} entries
                     </div>
                   </div>
                 </Link>

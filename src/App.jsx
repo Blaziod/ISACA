@@ -6,8 +6,6 @@ import Navigation from "./components/Navigation";
 import Dashboard from "./pages/Dashboard";
 import ManualCode from "./pages/ManualCode";
 import RegisteredList from "./pages/RegisteredList";
-import ScanInList from "./pages/ScanInList";
-import ScanOutList from "./pages/ScanOutList";
 import DataManagement from "./pages/DataManagement";
 import { storage } from "./utils/storage";
 import "./App.css";
@@ -72,8 +70,8 @@ function AppContent() {
               <Route path="/scan-out" element={<ManualCode />} />
               <Route path="/scan-in" element={<ScanIn />} />
               <Route path="/registered-list" element={<RegisteredList />} />
-              <Route path="/scan-in-list" element={<ScanInList />} />
-              <Route path="/scan-out-list" element={<ScanOutList />} />
+              {/* <Route path="/scan-in-list" element={<ScanInList />} />
+              <Route path="/scan-out-list" element={<ScanOutList />} /> */}
               <Route path="/data-management" element={<DataManagement />} />
             </Routes>
           </main>

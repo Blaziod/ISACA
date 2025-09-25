@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,15 +9,12 @@ import {
   FaBars,
   FaTimes,
   FaTachometerAlt,
-  FaCloud,
-  FaWifi,
-  FaExclamationTriangle,
   FaPowerOff,
   FaDatabase,
 } from "react-icons/fa";
 import "./Navigation.css";
 
-const Navigation = ({ storageStatus }) => {
+const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const { logout, currentUser } = useAuth();
@@ -32,29 +28,6 @@ const Navigation = ({ storageStatus }) => {
     { path: "/scan-out-list", icon: FaSignOutAlt, label: "ScanOut List" },
     { path: "/data-management", icon: FaDatabase, label: "Data Mgmt" },
   ];
-
-  const getStorageIcon = () => {
-    if (!storageStatus) return FaExclamationTriangle;
-    if (
-      storageStatus.storageMode === "cloud" ||
-      storageStatus.storageMode === "firebase"
-    )
-      return FaCloud;
-    if (storageStatus.isOnline) return FaWifi;
-    return FaExclamationTriangle;
-  };
-
-  const getStorageStatus = () => {
-    if (!storageStatus)
-      return { text: "Initializing...", className: "warning" };
-    if (storageStatus.storageMode === "cloud")
-      return { text: "Cloud Storage", className: "success" };
-    if (storageStatus.storageMode === "firebase")
-      return { text: "Firebase", className: "success" };
-    if (storageStatus.isOnline)
-      return { text: "Local Storage", className: "warning" };
-    return { text: "Offline Mode", className: "error" };
-  };
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -90,23 +63,6 @@ const Navigation = ({ storageStatus }) => {
               </Link>
             );
           })}
-
-          {/* Storage Status Indicator */}
-          <div className="storage-status">
-            {(() => {
-              const status = getStorageStatus();
-              const IconComponent = getStorageIcon();
-              return (
-                <div
-                  className={`status-indicator ${status.className}`}
-                  title={status.text}
-                >
-                  <IconComponent className="status-icon" />
-                  <span className="status-text">{status.text}</span>
-                </div>
-              );
-            })()}
-          </div>
 
           {/* User Section */}
           <div className="user-section">
