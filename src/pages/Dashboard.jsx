@@ -5,7 +5,6 @@ import axios from "axios";
 import {
   FaQrcode,
   FaKeyboard,
-  FaUserPlus,
   FaUsers,
   FaSignInAlt,
   FaChartBar,
@@ -75,7 +74,7 @@ const Dashboard = ({ eventId = "7edc69a2-fa32-43fc-aa9f-d026f434a24e" }) => {
       title: "QR Scanner",
       description: "Scan QR for check-in/out",
       icon: FaQrcode,
-      path: "/scan",
+      path: "/scan-in",
       color: "#3498db",
       bgColor: "#e3f2fd",
     },
@@ -83,18 +82,11 @@ const Dashboard = ({ eventId = "7edc69a2-fa32-43fc-aa9f-d026f434a24e" }) => {
       title: "Manual Code",
       description: "Enter backup codes",
       icon: FaKeyboard,
-      path: "/code",
+      path: "/scan-in",
       color: "#9c27b0",
       bgColor: "#f3e5f5",
     },
-    {
-      title: "Register User",
-      description: "Add new users",
-      icon: FaUserPlus,
-      path: "/register",
-      color: "#4caf50",
-      bgColor: "#e8f5e8",
-    },
+
     {
       title: "User Lists",
       description: "All registered users",
