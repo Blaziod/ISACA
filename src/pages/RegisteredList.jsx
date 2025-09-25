@@ -185,6 +185,7 @@ const RegisteredList = () => {
       "name",
       "email",
       "grade_level",
+      "designation",
       "remark",
       "status",
       "checked_in_at",
@@ -247,7 +248,7 @@ const RegisteredList = () => {
           <table>
             <thead>
               <tr>
-                <th>ID</th><th>Name</th><th>Email</th><th>Grade</th><th>Remark</th>
+                <th>Name</th><th>Email</th><th>Grade</th><th>Designation</th><th>Remark</th>
                 <th>Status</th><th>Checked In</th><th>Checked Out</th><th>Duration</th>
               </tr>
             </thead>
@@ -265,10 +266,10 @@ const RegisteredList = () => {
                       : "duration-complete";
 
                   return `<tr>
-                    <td>${u.id || "-"}</td>
                     <td>${u.name || "-"}</td>
                     <td>${u.email || "-"}</td>
                     <td>${u.grade_level || "-"}</td>
+                    <td>${u.designation || "-"}</td>
                     <td>${u.remark || "-"}</td>
                     <td>${u.status || "-"}</td>
                     <td>${
@@ -802,6 +803,7 @@ const RegisteredList = () => {
                           )
                         ) : null}
                       </th>
+                      <th>Designation</th>
                       <th
                         className="sortable"
                         onClick={() => handleSort("checked_in_at")}
@@ -828,6 +830,7 @@ const RegisteredList = () => {
                         <td className="user-name">{u.name || "-"}</td>
                         <td className="user-email">{u.email || "-"}</td>
                         <td>{u.grade_level || "-"}</td>
+                        <td>{u.designation || "-"}</td>
                         <td>
                           {u.checked_in_at
                             ? new Date(u.checked_in_at).toLocaleString()
