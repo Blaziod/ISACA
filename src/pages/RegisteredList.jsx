@@ -359,6 +359,9 @@ const RegisteredList = () => {
             fontWeight: "bold",
           },
         });
+        // Refresh the list after check-out
+        const { data } = await api.get(`/event/events/${eventId}/attendees`);
+        setRaw(Array.isArray(data) ? data : []);
       } catch (error) {
         let errorMessage = "An unexpected error occurred. Please try again.";
         const toastOptions = {
