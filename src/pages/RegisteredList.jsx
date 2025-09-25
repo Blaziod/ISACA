@@ -182,7 +182,6 @@ const RegisteredList = () => {
   const exportCSV = () => {
     // Export all filtered data, not just current page
     const headers = [
-      "id",
       "name",
       "email",
       "grade_level",
@@ -191,9 +190,6 @@ const RegisteredList = () => {
       "checked_in_at",
       "checked_out_at",
       "duration",
-      "event_id",
-      "qrcode",
-      "picture_url",
     ];
 
     const rows = filtered.map((u) =>
