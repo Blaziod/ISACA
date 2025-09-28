@@ -12,6 +12,7 @@ import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ScanIn from "./pages/ScanIn";
+import EventSelector from "./pages/EventSelector";
 
 function AppContent() {
   const [storageStatus, setStorageStatus] = useState(null);
@@ -63,12 +64,11 @@ function AppContent() {
           <Navigation storageStatus={storageStatus} />
           <main className="main-content">
             <Routes>
-              <Route
-                path="/"
-                element={<Dashboard storageStatus={storageStatus} />}
-              />
+              <Route path="/" element={<EventSelector />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/scan-out" element={<ManualCode />} />
               <Route path="/scan-in" element={<ScanIn />} />
+              <Route path="/event-selector" element={<EventSelector />} />
               <Route path="/registered-list" element={<RegisteredList />} />
               {/* <Route path="/scan-in-list" element={<ScanInList />} />
               <Route path="/scan-out-list" element={<ScanOutList />} /> */}

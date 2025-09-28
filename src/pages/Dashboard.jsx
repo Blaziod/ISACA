@@ -16,7 +16,7 @@ const API_URL = "https://id-code-432903898833.europe-west1.run.app/api/v1";
 const STATS_PATH =
   "/event/events/7edc69a2-fa32-43fc-aa9f-d026f434a24e/analytics";
 
-const Dashboard = ({ eventId = "7edc69a2-fa32-43fc-aa9f-d026f434a24e" }) => {
+const Dashboard = () => {
   const [stats, setStats] = useState({
     registration_count: 0,
     live_attendance_count: 0,
@@ -26,6 +26,7 @@ const Dashboard = ({ eventId = "7edc69a2-fa32-43fc-aa9f-d026f434a24e" }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const eventId = localStorage.getItem("eventId");
 
   // clock
   useEffect(() => {
